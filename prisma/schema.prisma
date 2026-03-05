@@ -1,0 +1,124 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL_DEV")
+  directUrl = env("DIRECT_URL")
+}
+
+model Usuario {
+  idUsuario         Int           @id @default(autoincrement())
+  mail              String        @unique
+  contraseña       String
+  rol               Rol
+  resetToken        String?       @unique
+  resetTokenExpires DateTime?
+  cliente           Cliente?
+  organizacion      Organizacion?
+}
+
+model Cliente {
+  idCliente       Int      @id @default(autoincrement())
+  idUsuario       Int      @unique
+  nombre          String
+  apellido        String
+  tipoDoc         String
+  nroDoc          String   @unique
+  fechaNacimiento DateTime
+  telefono        String?
+  tickets         Ticket[]
+
+  usuario Usuario @relation(fields: [idUsuario], references: [idUsuario], onDelete: Cascade)
+}
+
+model Organizacion {
+  idOrganizacion Int      @id @default(autoincrement())
+  idUsuario      Int      @unique
+  ubicacion      String
+  nombre         String
+  cuit           String   @unique
+  eventos        Evento[]
+
+  usuario Usuario @relation(fields: [idUsuario], references: [idUsuario], onDelete: Cascade)
+}
+
+model Categoria {
+  idCategoria     Int      @id @default(autoincrement())
+  nombreCategoria String   @unique
+  eventos         Evento[]
+}
+
+model Evento {
+  idEvento        Int          @id @default(autoincrement())
+  nombre          String
+  fechaCreacion   DateTime     @default(now())
+  fechaHoraEvento DateTime
+  ubicacion       String
+  capacidadMax    Int
+  descripcion     String?
+  idCategoria     Int
+  idOrganizacion  Int
+  foto            String
+  estado          EstadoEvento @default(ACTIVO)
+  categoria       Categoria    @relation(fields: [idCategoria], references: [idCategoria])
+  organizacion    Organizacion @relation(fields: [idOrganizacion], references: [idOrganizacion])
+  tipoTickets     TipoTicket[]
+}
+
+enum EstadoEvento {
+  ACTIVO
+  CANCELADO
+  FINALIZADO
+}
+
+model TipoTicket {
+  idTipoTicket   Int      @id @default(autoincrement())
+  tipo           String
+  precio         Decimal
+  acceso         String
+  sector         String?
+  cantMaxPorTipo Int
+  idEvento       Int
+  tickets        Ticket[]
+
+  evento Evento @relation(fields: [idEvento], references: [idEvento], onDelete: Cascade)
+}
+
+model Ticket {
+  nroTicket                    Int          @id @default(autoincrement())
+  fechaCreacion                DateTime     @default(now())
+  fechaConsumo                 DateTime?
+  tokenQr                      String       @unique
+  idTipoTicket                 Int
+  idCliente                    Int
+  ofertaTransferenciaIdCliente Int?
+  estado                       EstadoTicket @default(pagado)
+  metodoPago                   String?
+
+  cliente    Cliente    @relation(fields: [idCliente], references: [idCliente])
+  tipoTicket TipoTicket @relation(fields: [idTipoTicket], references: [idTipoTicket])
+}
+
+model Politica {
+  fechaVigencia DateTime @id @default(now())
+  diasReembolso Int      @default(7)
+}
+
+// Enum para definir los roles del usuario
+enum Rol {
+  CLIENTE
+  ORGANIZACION
+  ADMIN
+}
+
+// Valores posibles de Ticket.estado
+enum EstadoTicket {
+  pendiente
+  pagado
+  consumido
+  expirado
+  reembolsado
+  pendiente_transferencia
+}
