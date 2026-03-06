@@ -36,9 +36,13 @@ const crearEvento = async (req: Request, res: Response) => {
       }
     });
 
-    res.status(201).json(evento);
+    res.status(201).json({
+      message: "Evento creado con éxito",
+      data: evento,
+      error: false
+    });
   } catch (error) {
-    res.status(500).json({ error: "Error al crear evento" });
+    res.status(500).json({ message: "Error al crear evento", error: true });
   }
 };
 
@@ -57,9 +61,13 @@ const obtenerEventos = async (req: Request, res: Response) => {
       }
     });
 
-    res.json(eventos);
+    res.status(200).json({
+      message: "Eventos obtenidos con éxito",
+      data: eventos,
+      error: false
+    });
   } catch (error) {
-    res.status(500).json({ error: "Error al obtener eventos" });
+    res.status(500).json({ message: "Error al obtener eventos", error: true });
   }
 };
 
@@ -77,12 +85,16 @@ const obtenerEventosPorId = async (req: Request, res: Response) => {
     });
 
     if (!evento) {
-      return res.status(404).json({ error: "Evento no encontrado" });
+      return res.status(404).json({ message: "Evento no encontrado", error: true });
     }
 
-    res.json(evento);
+    res.status(200).json({
+      message: "Evento obtenido con éxito",
+      data: evento,
+      error: false
+    });
   } catch (error) {
-    res.status(500).json({ error: "Error al obtener evento" });
+    res.status(500).json({ message: "Error al obtener evento", error: true });
   }
 };
 
@@ -94,9 +106,12 @@ const eliminarEvento = async (req: Request, res: Response) => {
       where: { idEvento: id }
     });
 
-    res.json({ message: "Evento eliminado" });
+    res.status(200).json({
+      message: "Evento eliminado con éxito",
+      error: false
+    });
   } catch (error) {
-    res.status(500).json({ error: "Error al eliminar evento" });
+    res.status(500).json({ message: "Error al eliminar evento", error: true });
   }
 };
 
@@ -105,16 +120,43 @@ const cambiarFechaEvento = async (req: Request, res: Response) => {
     const id = Number(req.params.id);
     const { fechaHoraEvento } = req.body;
 
-    const evento = await prisma.evento.update({
-      where: { idEvento: id },
-      data: {
-        fechaHoraEvento: new Date(fechaHoraEvento)
+    const nuevaFecha = new Date(fechaHoraEvento);
+
+    // Obtener la política actual
+    const politica = await prisma.politica.findFirst({
+      orderBy: {
+        fechaVigencia: 'desc'
       }
     });
 
-    res.json(evento);
+    const diasReembolso = politica?.diasReembolso || 0;
+
+    // Calcular la fecha mínima permitida (hoy + diasReembolso)
+    const fechaMinima = new Date();
+    fechaMinima.setHours(0, 0, 0, 0); // Opcional, o usar .getTime()
+    fechaMinima.setDate(fechaMinima.getDate() + diasReembolso);
+
+    if (nuevaFecha < fechaMinima) {
+      return res.status(400).json({
+        message: `La fecha del evento debe ser al menos ${diasReembolso} días posterior al día de hoy, según la política de reembolsos vigente.`,
+        error: true
+      });
+    }
+
+    const evento = await prisma.evento.update({
+      where: { idEvento: id },
+      data: {
+        fechaHoraEvento: nuevaFecha
+      }
+    });
+
+    res.status(200).json({
+      message: "Fecha del evento cambiada con éxito",
+      data: evento,
+      error: false
+    });
   } catch (error) {
-    res.status(500).json({ error: "Error al cambiar fecha del evento" });
+    res.status(500).json({ message: "Error al cambiar fecha del evento", error: true });
   }
 };
 
@@ -155,11 +197,12 @@ const cancelarEvento = async (req: Request, res: Response) => {
       });
     }
 
-    res.json({
-      message: "Evento cancelado y clientes notificados"
+    res.status(200).json({
+      message: "Evento cancelado y clientes notificados",
+      error: false
     });
   } catch (error) {
-    res.status(500).json({ error: "Error al cancelar evento" });
+    res.status(500).json({ message: "Error al cancelar evento", error: true });
   }
 };
 
@@ -175,13 +218,17 @@ const getEstadisticas = async (_req: Request, res: Response) => {
       where: { estado: "CANCELADO" }
     });
 
-    res.json({
-      totalEventos,
-      eventosActivos,
-      eventosCancelados
+    res.status(200).json({
+      message: "Estadísticas obtenidas con éxito",
+      data: {
+        totalEventos,
+        eventosActivos,
+        eventosCancelados
+      },
+      error: false
     });
   } catch (error) {
-    res.status(500).json({ error: "Error al obtener estadísticas" });
+    res.status(500).json({ message: "Error al obtener estadísticas", error: true });
   }
 };
 
@@ -196,9 +243,13 @@ const getVentasPorHora = async (_req: Request, res: Response) => {
       ORDER BY hora
     `;
 
-    res.json(ventas);
+    res.status(200).json({
+      message: "Ventas por hora obtenidas con éxito",
+      data: ventas,
+      error: false
+    });
   } catch (error) {
-    res.status(500).json({ error: "Error al obtener ventas por hora" });
+    res.status(500).json({ message: "Error al obtener ventas por hora", error: true });
   }
 };
 
@@ -214,9 +265,13 @@ const getEventosPorCategoria = async (_req: Request, res: Response) => {
       ORDER BY cantidad DESC
     `;
 
-    res.json(data);
+    res.status(200).json({
+      message: "Eventos por categoría obtenidos con éxito",
+      data: data,
+      error: false
+    });
   } catch (error) {
-    res.status(500).json({ error: "Error al obtener eventos por categoría" });
+    res.status(500).json({ message: "Error al obtener eventos por categoría", error: true });
   }
 };
 

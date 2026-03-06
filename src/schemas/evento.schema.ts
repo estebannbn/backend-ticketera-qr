@@ -26,16 +26,6 @@ export const cambiarFechaEventoSchema = z.object({
         id: z.string().regex(/^\d+$/, "ID de evento inválido"),
     }),
     body: z.object({
-        fechaHoraEvento: z.string().or(z.date()).refine(
-            (val) => {
-                const date = new Date(val);
-                if (isNaN(date.getTime())) return false;
-
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                return date >= today;
-            },
-            { message: "La fecha del evento no puede ser previa al día de hoy" }
-        ),
+        fechaHoraEvento: z.string().or(z.date()),
     }),
 });
