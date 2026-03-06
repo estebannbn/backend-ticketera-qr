@@ -2,8 +2,8 @@ import { z } from "zod";
 
 export const crearPoliticaSchema = z.object({
     body: z.object({
-        diasReembolso: z.number().int().min(0, "Los días de reembolso deben ser 0 o más"),
-        fechaVigencia: z.string().or(z.date()),
+        diasReembolso: z.number().int().min(0, "Los días de reembolso deben ser 0 o más").optional(),
+        fechaVigencia: z.string().or(z.date()).optional(),
     }),
 });
 
