@@ -10,7 +10,6 @@ router.post("/", validate(crearEventoSchema), eventoController.crearEvento);
 router.get("/", eventoController.obtenerEventos);
 router.get("/estadisticas", eventoController.getEstadisticas);
 router.get("/ventas-hora", eventoController.getVentasPorHora);
-router.get("/reporte-categoria", eventoController.getEventosPorCategoria);
 
 // 👇 ESTA RUTA DEBE IR ANTES DE /:id
 router.get("/org/:idOrganizacion", async (req, res) => {

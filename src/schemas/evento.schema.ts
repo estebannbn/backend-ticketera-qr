@@ -18,6 +18,12 @@ export const crearEventoSchema = z.object({
         idCategoria: z.number().int().positive("ID de categoría inválido"),
         idOrganizacion: z.number().int().positive("ID de organización inválido"),
         tipoTickets: z.array(tipoTicketSchema).min(1, "Debe incluir al menos un tipo de ticket"),
+    }).refine(data => {
+        const totalTickets = data.tipoTickets.reduce((acc, ticket) => acc + ticket.cantMaxPorTipo, 0);
+        return totalTickets <= data.capacidadMax;
+    }, {
+        message: "La suma de la capacidad de los tipos de tickets no puede exceder la capacidad máxima del evento",
+        path: ["tipoTickets"]
     }),
 });
 
