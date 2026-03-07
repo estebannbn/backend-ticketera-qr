@@ -8,11 +8,6 @@ export const crearTicketSchema = z.object({
     }),
 });
 
-export const validarTicketSchema = z.object({
-    params: z.object({
-        tokenQr: z.string().min(1, "Token QR es requerido"),
-    }),
-});
 
 export const consumirTicketSchema = z.object({
     params: z.object({

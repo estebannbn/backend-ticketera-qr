@@ -433,52 +433,6 @@ const obtenerTicketsPorIdCliente = async (req: Request, res: Response): Promise<
   }
 };
 
-// Validar Ticket (QR)
-const validarTicket = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { tokenQr } = req.params;
-
-    const ticket = await prisma.ticket.findUnique({
-      where: { tokenQr },
-      include: {
-        tipoTicket: {
-          include: {
-            evento: true
-          }
-        },
-        cliente: true
-      }
-    });
-
-    if (!ticket) {
-      res.status(404).json({
-        message: "Ticket no encontrado",
-        error: true,
-      });
-      return;
-    }
-
-    if (ticket.estado !== 'pagado') {
-      res.status(400).json({
-        message: `El ticket no es válido para ingreso (Estado: ${ticket.estado})`,
-        error: true,
-      });
-      return;
-    }
-
-    res.status(200).json({
-      message: "Ticket válido",
-      data: ticket,
-      error: false,
-    });
-  } catch (error) {
-    res.status(500).json({
-      message: "Error al validar el ticket",
-      error: true,
-      details: (error as Error).message,
-    });
-  }
-};
 
 // Consumir Ticket (QR)
 const consumirTicket = async (req: Request, res: Response): Promise<void> => {
@@ -850,7 +804,6 @@ export default {
   eliminarTicket,
   actualizarTicket,
   obtenerTicketsPorIdCliente,
-  validarTicket,
   consumirTicket,
   recibirWebhook,
   transferirTicket,

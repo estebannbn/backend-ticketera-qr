@@ -23,10 +23,33 @@ const crearEvento = async (req: Request, res: Response) => {
       foto
     } = req.body;
 
+    const nuevaFecha = new Date(fechaHoraEvento);
+
+    // Obtener la política actual
+    const politica = await prisma.politica.findFirst({
+      orderBy: {
+        fechaVigencia: 'desc'
+      }
+    });
+
+    const diasReembolso = politica?.diasReembolso || 0;
+
+    // Calcular la fecha mínima permitida (hoy + diasReembolso)
+    const fechaMinima = new Date();
+    fechaMinima.setHours(0, 0, 0, 0);
+    fechaMinima.setDate(fechaMinima.getDate() + diasReembolso);
+
+    if (nuevaFecha < fechaMinima) {
+      return res.status(400).json({
+        message: `La fecha del evento debe ser al menos ${diasReembolso} días posterior al día de hoy, según la política de reembolsos vigente.`,
+        error: true
+      });
+    }
+
     const evento = await prisma.evento.create({
       data: {
         nombre,
-        fechaHoraEvento: new Date(fechaHoraEvento),
+        fechaHoraEvento: nuevaFecha,
         ubicacion,
         capacidadMax,
         descripcion,
@@ -206,16 +229,78 @@ const cancelarEvento = async (req: Request, res: Response) => {
   }
 };
 
-const getEstadisticas = async (_req: Request, res: Response) => {
+const getEstadisticas = async (req: Request, res: Response) => {
   try {
-    const totalEventos = await prisma.evento.count();
+    const idOrganizacionStr = req.query.idOrganizacion as string;
+    const idOrganizacion = idOrganizacionStr ? Number(idOrganizacionStr) : undefined;
+
+    const whereClause = idOrganizacion ? { idOrganizacion } : {};
+
+    const totalEventos = await prisma.evento.count({ where: whereClause });
 
     const eventosActivos = await prisma.evento.count({
-      where: { estado: "ACTIVO" }
+      where: { ...whereClause, estado: "ACTIVO" }
     });
 
     const eventosCancelados = await prisma.evento.count({
-      where: { estado: "CANCELADO" }
+      where: { ...whereClause, estado: "CANCELADO" }
+    });
+
+    const eventosFetch = await prisma.evento.findMany({
+      where: whereClause,
+      include: {
+        tipoTickets: {
+          include: {
+            tickets: {
+              include: {
+                cliente: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    const eventos = eventosFetch.map(evento => {
+      let vendidos = 0;
+      let reembolsados = 0;
+      let recaudacion = 0;
+      let sumaEdades = 0;
+      let clientesContados = 0;
+
+      evento.tipoTickets.forEach(tt => {
+        const precio = Number(tt.precio);
+        tt.tickets.forEach(ticket => {
+          if (["pagado", "consumido", "pendiente_transferencia", "reembolsado"].includes(ticket.estado)) {
+            vendidos++;
+            if (ticket.estado === "reembolsado") {
+              reembolsados++;
+            } else {
+              recaudacion += precio;
+            }
+
+            if (ticket.cliente && ticket.cliente.fechaNacimiento) {
+              const ageDifMs = Date.now() - new Date(ticket.cliente.fechaNacimiento).getTime();
+              const ageDate = new Date(ageDifMs);
+              sumaEdades += Math.abs(ageDate.getUTCFullYear() - 1970);
+              clientesContados++;
+            }
+          }
+        });
+      });
+
+      return {
+        idCategoria: evento.idCategoria,
+        idEvento: evento.idEvento,
+        nombre: evento.nombre,
+        foto: evento.foto,
+        fecha: evento.fechaHoraEvento,
+        vendidos,
+        reembolsados,
+        porcReembolsados: vendidos > 0 ? (reembolsados / vendidos) * 100 : 0,
+        recaudacion,
+        edadPromedio: clientesContados > 0 ? Math.round(sumaEdades / clientesContados) : 0
+      };
     });
 
     res.status(200).json({
@@ -223,7 +308,8 @@ const getEstadisticas = async (_req: Request, res: Response) => {
       data: {
         totalEventos,
         eventosActivos,
-        eventosCancelados
+        eventosCancelados,
+        eventos
       },
       error: false
     });
@@ -232,46 +318,44 @@ const getEstadisticas = async (_req: Request, res: Response) => {
   }
 };
 
-const getVentasPorHora = async (_req: Request, res: Response) => {
+const getVentasPorHora = async (req: Request, res: Response) => {
   try {
-    const ventas = await prisma.$queryRaw<
-      { hora: Date; ventas: bigint }[]
-    >`
-      SELECT date_trunc('hour', "fechaCreacion") as hora, count(*) as ventas
-      FROM "Ticket"
-      GROUP BY hora
-      ORDER BY hora
-    `;
+    const idOrganizacionStr = req.query.idOrganizacion as string;
+    const idOrganizacion = idOrganizacionStr ? Number(idOrganizacionStr) : undefined;
+
+    // We construct the query mapping dynamically for simplicity since $queryRaw doesn't easily handle dynamic optional WHEREs without raw SQL wrappers
+    let ventas;
+    if (idOrganizacion) {
+      ventas = await prisma.$queryRaw<{ hora: Date; ventas: bigint }[]>`
+        SELECT date_trunc('hour', t."fechaCreacion") as hora, count(*) as ventas
+        FROM "Ticket" t
+        JOIN "TipoTicket" tt ON t."idTipoTicket" = tt."idTipoTicket"
+        JOIN "Evento" e ON tt."idEvento" = e."idEvento"
+        WHERE e."idOrganizacion" = ${idOrganizacion}
+        GROUP BY hora
+        ORDER BY hora
+      `;
+    } else {
+      ventas = await prisma.$queryRaw<{ hora: Date; ventas: bigint }[]>`
+        SELECT date_trunc('hour', "fechaCreacion") as hora, count(*) as ventas
+        FROM "Ticket"
+        GROUP BY hora
+        ORDER BY hora
+      `;
+    }
+
+    const formattedVentas = ventas.map(v => ({
+      ...v,
+      ventas: Number(v.ventas)
+    }));
 
     res.status(200).json({
       message: "Ventas por hora obtenidas con éxito",
-      data: ventas,
+      data: formattedVentas,
       error: false
     });
   } catch (error) {
     res.status(500).json({ message: "Error al obtener ventas por hora", error: true });
-  }
-};
-
-const getEventosPorCategoria = async (_req: Request, res: Response) => {
-  try {
-    const data = await prisma.$queryRaw<
-      { nombreCategoria: string; cantidad: bigint }[]
-    >`
-      SELECT c."nombreCategoria", count(e."idEvento") as cantidad
-      FROM "Categoria" c
-      LEFT JOIN "Evento" e ON e."idCategoria" = c."idCategoria"
-      GROUP BY c."nombreCategoria"
-      ORDER BY cantidad DESC
-    `;
-
-    res.status(200).json({
-      message: "Eventos por categoría obtenidos con éxito",
-      data: data,
-      error: false
-    });
-  } catch (error) {
-    res.status(500).json({ message: "Error al obtener eventos por categoría", error: true });
   }
 };
 
@@ -283,6 +367,5 @@ export default {
   cambiarFechaEvento,
   cancelarEvento,
   getEstadisticas,
-  getVentasPorHora,
-  getEventosPorCategoria
+  getVentasPorHora
 };
