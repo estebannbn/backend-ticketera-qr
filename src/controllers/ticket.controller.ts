@@ -3,7 +3,7 @@ import { prisma } from "../prisma.js";
 import { EstadoTicket } from "@prisma/client";
 import { Request, Response } from "express";
 import { randomBytes } from "crypto";
-import { MercadoPagoConfig, Preference, Payment } from "mercadopago";
+import { MercadoPagoConfig, Preference, Payment, PaymentRefund } from "mercadopago";
 import QRCode from "qrcode";
 
 // Configuración de Mercado Pago
@@ -33,9 +33,9 @@ const crearTicket = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    if (tipoTicket.evento?.estado === 'CANCELADO') {
+    if (tipoTicket.evento?.estado === 'CANCELADO' || tipoTicket.evento?.estado === 'FINALIZADO') {
       res.status(400).json({
-        message: "No se pueden comprar tickets para un evento cancelado",
+        message: "No se pueden comprar tickets para un evento cancelado o finalizado",
         error: true,
       });
       return;
@@ -96,27 +96,27 @@ const crearTicket = async (req: Request, res: Response): Promise<void> => {
     let ticket;
 
     if (ticketPendienteExistente) {
-        // Reutilizar el ticket pendiente existente
-        ticket = ticketPendienteExistente;
-        
-        // Actualizamos la fecha de creación para darle otros 10 minutos de gracia
-        await prisma.ticket.update({
-            where: { nroTicket: ticket.nroTicket },
-            data: { fechaCreacion: new Date() }
-        });
-        console.log(`Reutilizando ticket pendiente #${ticket.nroTicket}`);
+      // Reutilizar el ticket pendiente existente
+      ticket = ticketPendienteExistente;
+
+      // Actualizamos la fecha de creación para darle otros 10 minutos de gracia
+      await prisma.ticket.update({
+        where: { nroTicket: ticket.nroTicket },
+        data: { fechaCreacion: new Date() }
+      });
+      console.log(`Reutilizando ticket pendiente #${ticket.nroTicket}`);
     } else {
-        // 2. Crear un nuevo ticket con estado 'pendiente'
-        const tokenQr = randomBytes(16).toString("hex");
-        ticket = await prisma.ticket.create({
-            data: {
-                idCliente: Number(idCliente),
-                idTipoTicket: Number(idTipoTicket),
-                tokenQr: tokenQr,
-                estado: EstadoTicket.pendiente
-            } as any,
-        });
-        console.log(`Creando nuevo ticket pendiente #${ticket.nroTicket}`);
+      // 2. Crear un nuevo ticket con estado 'pendiente'
+      const tokenQr = randomBytes(16).toString("hex");
+      ticket = await prisma.ticket.create({
+        data: {
+          idCliente: Number(idCliente),
+          idTipoTicket: Number(idTipoTicket),
+          tokenQr: tokenQr,
+          estado: EstadoTicket.pendiente
+        } as any,
+      });
+      console.log(`Creando nuevo ticket pendiente #${ticket.nroTicket}`);
     }
 
     console.log("Intentando crear preferencia de MP con access token:", process.env.MP_ACCESS_TOKEN ? "DEFINIDO" : "NO DEFINIDO");
@@ -223,7 +223,10 @@ const procesarPago = async (req: Request, res: Response): Promise<void> => {
     if (estadoMP === 'approved') {
       const ticketPagado = await prisma.ticket.update({
         where: { nroTicket: ticket.nroTicket },
-        data: { estado: EstadoTicket.pagado },
+        data: {
+          estado: EstadoTicket.pagado,
+          paymentId: result.id?.toString()
+        },
         include: {
           cliente: { include: { usuario: true } },
           tipoTicket: { include: { evento: true } }
@@ -235,13 +238,30 @@ const procesarPago = async (req: Request, res: Response): Promise<void> => {
       // Enviar correo
       if (ticketPagado.cliente?.usuario?.mail) {
         const { sendTicketEmail } = await import("../services/emailService.js");
+
+        const fechaHoraEvento = new Date(ticketPagado.tipoTicket?.evento?.fechaHoraEvento || new Date());
+
+        const OFFSET_ARG = -3 * 60 * 60 * 1000;
+        const fechaHoraEvtArg = new Date(fechaHoraEvento.getTime() + OFFSET_ARG);
+        const inicioRangoArg = new Date(fechaHoraEvtArg.getTime() - 4 * 60 * 60 * 1000);
+        const finRangoArg = new Date(fechaHoraEvtArg.getTime() + 12 * 60 * 60 * 1000);
+
+        const formatterTime = new Intl.DateTimeFormat('es-AR', {
+          timeZone: 'America/Argentina/Buenos_Aires',
+          hour: '2-digit', minute: '2-digit'
+        });
+
+        const timeInicio = formatterTime.format(inicioRangoArg);
+        const timeFin = formatterTime.format(finRangoArg);
+
         await sendTicketEmail(ticketPagado.cliente.usuario.mail, {
           evento: ticketPagado.tipoTicket?.evento?.nombre || "Evento",
-          fecha: new Date(ticketPagado.tipoTicket?.evento?.fechaHoraEvento || new Date()).toLocaleString(),
+          fecha: fechaHoraEvento.toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' }),
           usuario: `${ticketPagado.cliente.nombre} ${ticketPagado.cliente.apellido}`,
           precio: Number(ticketPagado.tipoTicket?.precio || 0),
           nroTicket: ticketPagado.nroTicket,
-          qrData: ticketPagado.tokenQr
+          qrData: ticketPagado.tokenQr,
+          rangoHorario: `${timeInicio} hs a ${timeFin} hs`
         });
       }
 
@@ -287,7 +307,10 @@ const recibirWebhook = async (req: Request, res: Response): Promise<void> => {
         if (externalReference) {
           const ticket = await prisma.ticket.update({
             where: { nroTicket: parseInt(externalReference) },
-            data: { estado: EstadoTicket.pagado },
+            data: {
+              estado: EstadoTicket.pagado,
+              paymentId: paymentId.toString()
+            },
             include: {
               cliente: {
                 include: { usuario: true }
@@ -302,13 +325,27 @@ const recibirWebhook = async (req: Request, res: Response): Promise<void> => {
           // Enviar correo
           if (ticket.cliente?.usuario?.mail) {
             const { sendTicketEmail } = await import("../services/emailService.js");
+
+            const fechaHoraEvento = new Date(ticket.tipoTicket?.evento?.fechaHoraEvento || new Date());
+
+            const OFFSET_ARG = -3 * 60 * 60 * 1000;
+            const fechaHoraEvtArg = new Date(fechaHoraEvento.getTime() + OFFSET_ARG);
+            const inicioRangoArg = new Date(fechaHoraEvtArg.getTime() - 4 * 60 * 60 * 1000);
+            const finRangoArg = new Date(fechaHoraEvtArg.getTime() + 12 * 60 * 60 * 1000);
+
+            const formatterTime = new Intl.DateTimeFormat('es-AR', {
+              timeZone: 'America/Argentina/Buenos_Aires',
+              hour: '2-digit', minute: '2-digit'
+            });
+
             await sendTicketEmail(ticket.cliente.usuario.mail, {
               evento: ticket.tipoTicket?.evento?.nombre || "Evento",
-              fecha: new Date(ticket.tipoTicket?.evento?.fechaHoraEvento || new Date()).toLocaleString(),
+              fecha: fechaHoraEvento.toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' }),
               usuario: `${ticket.cliente.nombre} ${ticket.cliente.apellido}`,
               precio: Number(ticket.tipoTicket?.precio || 0),
               nroTicket: ticket.nroTicket,
-              qrData: ticket.tokenQr
+              qrData: ticket.tokenQr,
+              rangoHorario: `${formatterTime.format(inicioRangoArg)} hs a ${formatterTime.format(finRangoArg)} hs`
             });
           }
         }
@@ -324,7 +361,7 @@ const recibirWebhook = async (req: Request, res: Response): Promise<void> => {
 const sincronizarPago = async (req: Request, res: Response): Promise<void> => {
   try {
     const { payment_id } = req.body;
-    
+
     if (!payment_id) {
       res.status(400).json({ message: "Se requiere payment_id", error: true });
       return;
@@ -344,7 +381,10 @@ const sincronizarPago = async (req: Request, res: Response): Promise<void> => {
         if (ticketExistente && ticketExistente.estado === EstadoTicket.pendiente) {
           const ticket = await prisma.ticket.update({
             where: { nroTicket: parseInt(externalReference) },
-            data: { estado: EstadoTicket.pagado },
+            data: {
+              estado: EstadoTicket.pagado,
+              paymentId: payment_id.toString()
+            },
             include: {
               cliente: { include: { usuario: true } },
               tipoTicket: { include: { evento: true } }
@@ -355,17 +395,31 @@ const sincronizarPago = async (req: Request, res: Response): Promise<void> => {
           // Enviar correo
           if (ticket.cliente?.usuario?.mail) {
             const { sendTicketEmail } = await import("../services/emailService.js");
+
+            const fechaHoraEvento = new Date(ticket.tipoTicket?.evento?.fechaHoraEvento || new Date());
+
+            const OFFSET_ARG = -3 * 60 * 60 * 1000;
+            const fechaHoraEvtArg = new Date(fechaHoraEvento.getTime() + OFFSET_ARG);
+            const inicioRangoArg = new Date(fechaHoraEvtArg.getTime() - 4 * 60 * 60 * 1000);
+            const finRangoArg = new Date(fechaHoraEvtArg.getTime() + 12 * 60 * 60 * 1000);
+
+            const formatterTime = new Intl.DateTimeFormat('es-AR', {
+              timeZone: 'America/Argentina/Buenos_Aires',
+              hour: '2-digit', minute: '2-digit'
+            });
+
             await sendTicketEmail(ticket.cliente.usuario.mail, {
               evento: ticket.tipoTicket?.evento?.nombre || "Evento",
-              fecha: new Date(ticket.tipoTicket?.evento?.fechaHoraEvento || new Date()).toLocaleString(),
+              fecha: fechaHoraEvento.toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' }),
               usuario: `${ticket.cliente.nombre} ${ticket.cliente.apellido}`,
               precio: Number(ticket.tipoTicket?.precio || 0),
               nroTicket: ticket.nroTicket,
-              qrData: ticket.tokenQr
+              qrData: ticket.tokenQr,
+              rangoHorario: `${formatterTime.format(inicioRangoArg)} hs a ${formatterTime.format(finRangoArg)} hs`
             });
           }
         } else {
-            console.log(`Ticket ${externalReference} ya estaba pagado o no fue encontrado.`);
+          console.log(`Ticket ${externalReference} ya estaba pagado o no fue encontrado.`);
         }
       }
     }
@@ -569,6 +623,13 @@ const consumirTicket = async (req: Request, res: Response): Promise<void> => {
 
     const ticket = await prisma.ticket.findUnique({
       where: { tokenQr },
+      include: {
+        tipoTicket: {
+          include: {
+            evento: true
+          }
+        }
+      }
     });
 
     if (!ticket) {
@@ -589,6 +650,37 @@ const consumirTicket = async (req: Request, res: Response): Promise<void> => {
         message: msg,
         error: true,
         estadoActual: ticket.estado
+      });
+      return;
+    }
+
+    // Calcular límites de tiempo para consumo (UTC-3)
+    const OFFSET_ARG = -3 * 60 * 60 * 1000;
+    const ahoraArg = new Date(Date.now() + OFFSET_ARG);
+
+    // Obtener la fecha del evento en "tiempo absoluto" referenciado a Argentina
+    const fechaHoraEvento = ticket.tipoTicket.evento.fechaHoraEvento;
+    const fechaEventoArg = new Date(fechaHoraEvento.getTime() + OFFSET_ARG);
+
+    const limiteInicioHora = new Date(fechaEventoArg.getTime() - 4 * 60 * 60 * 1000); // 4 horas antes
+    const limiteFinHora = new Date(fechaEventoArg.getTime() + 12 * 60 * 60 * 1000); // 12 horas después
+
+    if (ahoraArg < limiteInicioHora) {
+      res.status(400).json({
+        message: "El ticket no puede ser consumido todavía. El escaneo inicia 4 horas antes del evento.",
+        error: true,
+        estadoActual: ticket.estado,
+        ticket: ticket,
+      });
+      return;
+    }
+
+    if (ahoraArg > limiteFinHora) {
+      res.status(400).json({
+        message: "El tiempo válido para consumir este ticket ha expirado. (Límite: 12 hs después del evento)",
+        error: true,
+        estadoActual: ticket.estado,
+        ticket: ticket,
       });
       return;
     }
@@ -886,6 +978,27 @@ const reembolsarTicket = async (req: Request, res: Response): Promise<void> => {
       res.status(400).json({
         message: `No se puede reembolsar. La política requiere al menos ${diasLimite} días de anticipación.`,
         error: true,
+      });
+      return;
+    }
+
+    if (!ticket.paymentId) {
+      res.status(400).json({
+        message: "No se puede reembolsar el ticket porque no tiene registrado un ID de pago.",
+        error: true,
+      });
+      return;
+    }
+
+    try {
+      const refund = new PaymentRefund(client);
+      await refund.create({ payment_id: Number(ticket.paymentId) });
+    } catch (mpError: any) {
+      console.error(`Error al procesar reembolso en Mercado Pago para ticket ${ticket.nroTicket}:`, mpError.message || mpError);
+      res.status(500).json({
+        message: "Error al procesar el reembolso en Mercado Pago",
+        error: true,
+        details: mpError.response ? mpError.response : mpError.message
       });
       return;
     }

@@ -23,7 +23,7 @@ export const crearClienteSchema = z.object({
         tipoDoc: z.enum(["DNI", "Pasaporte", "Cédula"]),
         nroDoc: z.string(),
         fechaNacimiento: z.string().or(z.date()),
-        telefono: z.string().regex(/^\+?\d{8,15}$/, "Número de teléfono inválido (8-15 dígitos)").optional(),
+        telefono: z.string().min(4, "El teléfono debe tener al menos 4 caracteres").max(12, "El teléfono no debe exceder los 12 caracteres").regex(/^\+?\d+$/, "Número de teléfono inválido").optional(),
         repetirContraseña: z.string().optional(),
     }).superRefine((data, ctx) => {
         if (data.contraseña !== data.repetirContraseña) {
