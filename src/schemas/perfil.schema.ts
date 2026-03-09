@@ -10,7 +10,7 @@ export const actualizarClienteSchema = z.object({
         tipoDoc: z.enum(["DNI", "Pasaporte", "Cédula"]).optional(),
         nroDoc: z.string().optional(),
         fechaNacimiento: z.string().or(z.date()).optional(),
-        telefono: z.string().min(4, "El teléfono debe tener al menos 4 caracteres").max(12, "El teléfono no debe exceder los 12 caracteres").regex(/^\+?\d+$/, "El número de teléfono debe ser válido").optional().or(z.literal("")),
+        telefono: z.string().min(6, "El teléfono debe tener al menos 6 caracteres").max(15, "El teléfono no debe exceder los 15 caracteres").regex(/^\+?\d+$/, "El número de teléfono debe ser válido").optional().or(z.literal("")),
         mail: z.string().email("Email inválido").optional(),
         contraseña: z.string().min(6, "La contraseña debe tener al menos 6 caracteres").optional().or(z.literal("")),
     }).superRefine((data, ctx) => {
