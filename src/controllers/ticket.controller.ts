@@ -85,17 +85,39 @@ const crearTicket = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const tokenQr = randomBytes(16).toString("hex");
-
-    // 2. Crear el ticket con estado 'pendiente'
-    const ticket = await prisma.ticket.create({
-      data: {
+    const ticketPendienteExistente = await prisma.ticket.findFirst({
+      where: {
         idCliente: Number(idCliente),
         idTipoTicket: Number(idTipoTicket),
-        tokenQr: tokenQr,
         estado: EstadoTicket.pendiente
-      } as any,
+      }
     });
+
+    let ticket;
+
+    if (ticketPendienteExistente) {
+        // Reutilizar el ticket pendiente existente
+        ticket = ticketPendienteExistente;
+        
+        // Actualizamos la fecha de creación para darle otros 10 minutos de gracia
+        await prisma.ticket.update({
+            where: { nroTicket: ticket.nroTicket },
+            data: { fechaCreacion: new Date() }
+        });
+        console.log(`Reutilizando ticket pendiente #${ticket.nroTicket}`);
+    } else {
+        // 2. Crear un nuevo ticket con estado 'pendiente'
+        const tokenQr = randomBytes(16).toString("hex");
+        ticket = await prisma.ticket.create({
+            data: {
+                idCliente: Number(idCliente),
+                idTipoTicket: Number(idTipoTicket),
+                tokenQr: tokenQr,
+                estado: EstadoTicket.pendiente
+            } as any,
+        });
+        console.log(`Creando nuevo ticket pendiente #${ticket.nroTicket}`);
+    }
 
     console.log("Intentando crear preferencia de MP con access token:", process.env.MP_ACCESS_TOKEN ? "DEFINIDO" : "NO DEFINIDO");
 
@@ -296,6 +318,65 @@ const recibirWebhook = async (req: Request, res: Response): Promise<void> => {
   } catch (error) {
     console.error("Error en webhook", error);
     res.sendStatus(500);
+  }
+};
+
+const sincronizarPago = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { payment_id } = req.body;
+    
+    if (!payment_id) {
+      res.status(400).json({ message: "Se requiere payment_id", error: true });
+      return;
+    }
+
+    const payment = new Payment(client);
+    const paymentData = await payment.get({ id: Number(payment_id) });
+
+    if (paymentData.status === 'approved') {
+      const externalReference = paymentData.external_reference;
+
+      if (externalReference) {
+        const ticketExistente = await prisma.ticket.findUnique({
+          where: { nroTicket: parseInt(externalReference) }
+        });
+
+        if (ticketExistente && ticketExistente.estado === EstadoTicket.pendiente) {
+          const ticket = await prisma.ticket.update({
+            where: { nroTicket: parseInt(externalReference) },
+            data: { estado: EstadoTicket.pagado },
+            include: {
+              cliente: { include: { usuario: true } },
+              tipoTicket: { include: { evento: true } }
+            }
+          });
+          console.log(`Ticket ${externalReference} sincronizado a PAGADO vía frontend.`);
+
+          // Enviar correo
+          if (ticket.cliente?.usuario?.mail) {
+            const { sendTicketEmail } = await import("../services/emailService.js");
+            await sendTicketEmail(ticket.cliente.usuario.mail, {
+              evento: ticket.tipoTicket?.evento?.nombre || "Evento",
+              fecha: new Date(ticket.tipoTicket?.evento?.fechaHoraEvento || new Date()).toLocaleString(),
+              usuario: `${ticket.cliente.nombre} ${ticket.cliente.apellido}`,
+              precio: Number(ticket.tipoTicket?.precio || 0),
+              nroTicket: ticket.nroTicket,
+              qrData: ticket.tokenQr
+            });
+          }
+        } else {
+            console.log(`Ticket ${externalReference} ya estaba pagado o no fue encontrado.`);
+        }
+      }
+    }
+    res.status(200).json({ message: "Sincronización completada", error: false });
+  } catch (error) {
+    console.error("Error en sincronizarPago", error);
+    res.status(500).json({
+      message: "Error al sincronizar pago",
+      error: true,
+      details: (error as Error).message,
+    });
   }
 };
 
@@ -858,4 +939,5 @@ export default {
   aceptarTransferencia,
   rechazarTransferencia,
   procesarPago,
+  sincronizarPago
 };

@@ -22,6 +22,7 @@ router.get("/", ticketController.obtenerTickets);
 router.get("/cliente/:idCliente", validate(idClienteParamSchema), ticketController.obtenerTicketsPorIdCliente);
 
 router.post("/procesar-pago", validate(procesarPagoSchema), ticketController.procesarPago);
+router.post("/sincronizar", ticketController.sincronizarPago);
 
 router.put("/consumir/:tokenQr", validate(consumirTicketSchema), ticketController.consumirTicket);
 router.get("/:id", validate(idParamSchema), ticketController.obtenerTicketPorId);
