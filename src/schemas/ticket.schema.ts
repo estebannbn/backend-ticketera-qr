@@ -4,7 +4,13 @@ export const crearTicketSchema = z.object({
     body: z.object({
         idCliente: z.number().int().positive("ID de cliente inválido"),
         idTipoTicket: z.number().int().positive("ID de tipo de ticket inválido"),
-        metodoPago: z.enum(["tarjeta", "mercadopago"]).optional(),
+    }),
+});
+
+export const procesarPagoSchema = z.object({
+    body: z.object({
+        nroTicket: z.number().int().positive("Número de ticket inválido"),
+        formData: z.any(),
     }),
 });
 
@@ -34,7 +40,6 @@ export const actualizarTicketSchema = z.object({
     body: z.object({
         idCliente: z.number().int().positive().optional(),
         idTipoTicket: z.number().int().positive().optional(),
-        metodoPago: z.enum(["tarjeta", "mercadopago"]).optional(),
         estado: z.string().optional(),
     }).partial(),
 });

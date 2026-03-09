@@ -3,7 +3,7 @@ import ticketController from "../controllers/ticket.controller.js";
 import { validate } from "../middleware/validate.middleware.js";
 import {
     crearTicketSchema,
-
+    procesarPagoSchema,
     consumirTicketSchema,
     transferirTicketSchema,
     reembolsarTicketSchema,
@@ -20,6 +20,8 @@ router.post("/", validate(crearTicketSchema), ticketController.crearTicket);
 router.post("/webhook", ticketController.recibirWebhook);
 router.get("/", ticketController.obtenerTickets);
 router.get("/cliente/:idCliente", validate(idClienteParamSchema), ticketController.obtenerTicketsPorIdCliente);
+
+router.post("/procesar-pago", validate(procesarPagoSchema), ticketController.procesarPago);
 
 router.put("/consumir/:tokenQr", validate(consumirTicketSchema), ticketController.consumirTicket);
 router.get("/:id", validate(idParamSchema), ticketController.obtenerTicketPorId);
