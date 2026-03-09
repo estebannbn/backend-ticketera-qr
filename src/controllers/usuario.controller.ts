@@ -107,14 +107,34 @@ const logoutUsuario = (req: Request, res: Response) => {
 };
 
 
-const getUsuarioLogueado = async (req: Request, res: Response) => {
+const getUsuarioLogueado = async (req: Request, res: Response): Promise<void> => {
   try {
     // @ts-ignore
-    const user = req.user; // podriamos editar el tipo Request para que tenga el usuario
-    res.send(user);
+    const userPayload = req.user;
+
+    if (!userPayload || !userPayload.id) {
+      res.status(401).send("USER_PAYLOAD_NOT_FOUND");
+      return;
+    }
+
+    const usuarioData = await prisma.usuario.findUnique({
+      where: { idUsuario: Number(userPayload.id) },
+      select: {
+        idUsuario: true,
+        mail: true,
+        rol: true,
+      }
+    });
+
+    if (!usuarioData) {
+      res.status(404).send("USUARIO_NO_ENCONTRADO");
+      return;
+    }
+
+    res.status(200).json(usuarioData);
   } catch (e) {
-    res.status(500);
-    res.send("ERROR_CHECK_SESSION");
+    console.error("Error en getUsuarioLogueado:", e);
+    res.status(500).send("ERROR_CHECK_SESSION");
   }
 }
 

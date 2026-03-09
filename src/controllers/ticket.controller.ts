@@ -17,7 +17,7 @@ const client = new MercadoPagoConfig({
 
 const crearTicket = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { idCliente, idTipoTicket, metodoPago } = req.body;
+    const { idCliente, idTipoTicket } = req.body;
 
     // 1. Obtener información del tipo de ticket (para el precio y nombre)
     const tipoTicket = await prisma.tipoTicket.findUnique({
@@ -93,70 +93,122 @@ const crearTicket = async (req: Request, res: Response): Promise<void> => {
         idCliente: Number(idCliente),
         idTipoTicket: Number(idTipoTicket),
         tokenQr: tokenQr,
-        metodoPago: (metodoPago || "tarjeta"),
         estado: EstadoTicket.pendiente
       } as any,
     });
 
-    // 3. Manejar el pago según el método
-    if (metodoPago === "mercadopago") {
-      console.log("Intentando crear preferencia de MP con access token:", process.env.MP_ACCESS_TOKEN ? "DEFINIDO" : "NO DEFINIDO");
+    console.log("Intentando crear preferencia de MP con access token:", process.env.MP_ACCESS_TOKEN ? "DEFINIDO" : "NO DEFINIDO");
 
-      const preference = new Preference(client);
+    const preference = new Preference(client);
 
-      const preferenceData = {
-        body: {
-          items: [
-            {
-              id: ticket.nroTicket.toString(),
-              title: `Entrada: ${tipoTicket.evento.nombre} - ${tipoTicket.tipo}`,
-              quantity: 1,
-              unit_price: Number(tipoTicket.precio),
-              currency_id: "ARS"
-            }
-          ],
-          back_urls: {
-            success: `${(process.env.FRONTEND_URL || 'http://localhost:3000').replace(/['"]/g, '')}/pago-exitoso`,
-            failure: `${(process.env.FRONTEND_URL || 'http://localhost:3000').replace(/['"]/g, '')}/pago-fallido`,
-            pending: `${(process.env.FRONTEND_URL || 'http://localhost:3000').replace(/['"]/g, '')}/pago-pendiente`,
-          },
-          auto_return: "approved",
-          notification_url: `http://localhost:${(process.env.PORT || '5000').replace(/['"]/g, '')}/api/tickets/webhook`,
-          external_reference: ticket.nroTicket.toString()
-        }
-      };
-
-      console.log("Datos de preferencia:", JSON.stringify(preferenceData, null, 2));
-
-      const result = await preference.create(preferenceData);
-
-      console.log("Resultado creación preferencia:", result.id ? "EXITO" : "FALLO", result.init_point);
-
-      res.status(200).json({
-        message: "Preferencia de Mercado Pago creada",
-        data: {
-          ticket,
-          init_point: result.init_point
+    const preferenceData = {
+      body: {
+        items: [
+          {
+            id: ticket.nroTicket.toString(),
+            title: `Entrada: ${tipoTicket.evento.nombre} - ${tipoTicket.tipo}`,
+            quantity: 1,
+            unit_price: Number(tipoTicket.precio),
+            currency_id: "ARS"
+          }
+        ],
+        back_urls: {
+          success: `${(process.env.FRONTEND_URL || process.env.FRONTEND_LOCAL_URL || 'http://localhost:3000').replace(/['"]/g, '')}/pago-exitoso`,
+          failure: `${(process.env.FRONTEND_URL || process.env.FRONTEND_LOCAL_URL || 'http://localhost:3000').replace(/['"]/g, '')}/pago-fallido`,
+          pending: `${(process.env.FRONTEND_URL || process.env.FRONTEND_LOCAL_URL || 'http://localhost:3000').replace(/['"]/g, '')}/pago-pendiente`,
         },
-        error: false,
+        auto_return: "approved",
+        notification_url: `${(process.env.BACKEND_URL || 'http://localhost:5000').replace(/['"]/g, '')}/api/tickets/webhook`,
+        external_reference: ticket.nroTicket.toString()
+      }
+    };
+
+    console.log("Datos de preferencia:", JSON.stringify(preferenceData, null, 2));
+
+    const result = await preference.create(preferenceData);
+
+    console.log("Resultado creación preferencia:", result.id ? "EXITO" : "FALLO", result.init_point);
+
+    res.status(200).json({
+      message: "Preferencia de Mercado Pago creada",
+      data: {
+        ticket,
+        init_point: result.init_point,
+        preferenceId: result.id
+      },
+      error: false,
+    });
+
+
+  } catch (error) {
+    console.error("Error en crearTicket", error);
+    res.status(500).json({
+      message: "Error al crear el ticket",
+      error: true,
+      details: (error as Error).message,
+    });
+  }
+};
+
+const procesarPago = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { nroTicket, formData } = req.body;
+
+    const ticket = await prisma.ticket.findUnique({
+      where: { nroTicket: Number(nroTicket) },
+      include: {
+        tipoTicket: {
+          include: { evento: true }
+        }
+      }
+    });
+
+    if (!ticket) {
+      res.status(404).json({ message: "Ticket no encontrado", error: true });
+      return;
+    }
+
+    if (ticket.estado !== EstadoTicket.pendiente) {
+      res.status(400).json({ message: "El ticket no está pendiente de pago", error: true });
+      return;
+    }
+
+    const payment = new Payment(client);
+    const paymentBody = {
+      ...formData,
+      transaction_amount: Number(ticket.tipoTicket?.precio || formData.transaction_amount),
+      description: `Entrada: ${ticket.tipoTicket?.evento?.nombre || 'Evento'} - ${ticket.tipoTicket?.tipo || 'Ticket'}`,
+      external_reference: ticket.nroTicket.toString(),
+      notification_url: `${(process.env.FRONTEND_URL || process.env.FRONTEND_LOCAL_URL || 'http://localhost:5000').replace(/['"]/g, '')}/api/tickets/webhook`,
+    };
+
+    let result;
+    try {
+      result = await payment.create({ body: paymentBody });
+    } catch (mpError: any) {
+      console.error("Error creating payment:", mpError);
+      res.status(400).json({
+        message: "Error al crear pago en Mercado Pago",
+        error: true,
+        details: mpError.response ? mpError.response : mpError.message
       });
       return;
     }
 
-    // Si es tarjeta (Simulación de pago exitoso inmediata para este ejemplo)
-    if (metodoPago === "tarjeta") {
+    const estadoMP = result.status;
+
+    // Si fue aprobado al instante, lo actualizamos y enviamos correo
+    if (estadoMP === 'approved') {
       const ticketPagado = await prisma.ticket.update({
         where: { nroTicket: ticket.nroTicket },
         data: { estado: EstadoTicket.pagado },
         include: {
-          cliente: {
-            include: { usuario: true }
-          },
-          tipoTicket: {
-            include: { evento: true }
-          }
+          cliente: { include: { usuario: true } },
+          tipoTicket: { include: { evento: true } }
         }
       });
+
+      const qrDataURL = await QRCode.toDataURL(ticketPagado.tokenQr);
 
       // Enviar correo
       if (ticketPagado.cliente?.usuario?.mail) {
@@ -171,28 +223,24 @@ const crearTicket = async (req: Request, res: Response): Promise<void> => {
         });
       }
 
-      const qrDataURL = await QRCode.toDataURL(ticketPagado.tokenQr);
-
       res.status(200).json({
-        message: "Ticket comprado con éxito (Tarjeta)",
-        data: {
-          ...ticketPagado,
-          qr: qrDataURL
-        },
+        message: "Pago aprobado y ticket generado",
+        data: { ticket: ticketPagado, status: estadoMP, qr: qrDataURL },
         error: false,
       });
       return;
     }
 
+    // Para cualquier otro estado (rechazado, in_process, pendiente, etc)
     res.status(200).json({
-      message: "Ticket generado (pendiente de pago)",
-      data: ticket,
+      message: "Pago procesado con estado: " + estadoMP,
+      data: { ticket, status: estadoMP, paymentId: result.id },
       error: false,
     });
   } catch (error) {
-    console.error("Error en crearTicket", error);
+    console.error("Error en procesarPago:", error);
     res.status(500).json({
-      message: "Error al crear el ticket",
+      message: "Error interno al procesar pago",
       error: true,
       details: (error as Error).message,
     });
@@ -387,8 +435,7 @@ const obtenerTicketsPorIdCliente = async (req: Request, res: Response): Promise<
         ],
         NOT: {
           AND: [
-            { estado: 'expirado' },
-            { metodoPago: 'mercadopago' }
+            { estado: 'expirado' }
           ]
         }
       },
@@ -810,4 +857,5 @@ export default {
   reembolsarTicket,
   aceptarTransferencia,
   rechazarTransferencia,
+  procesarPago,
 };

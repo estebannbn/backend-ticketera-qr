@@ -20,7 +20,8 @@ const crearEvento = async (req: Request, res: Response) => {
       descripcion,
       idCategoria,
       idOrganizacion,
-      foto
+      foto,
+      tipoTickets
     } = req.body;
 
     const nuevaFecha = new Date(fechaHoraEvento);
@@ -55,7 +56,19 @@ const crearEvento = async (req: Request, res: Response) => {
         descripcion,
         idCategoria,
         idOrganizacion,
-        foto
+        foto,
+        tipoTickets: tipoTickets && tipoTickets.length > 0 ? {
+          create: tipoTickets.map((tt: any) => ({
+            tipo: tt.tipo,
+            precio: Number(tt.precio),
+            acceso: tt.acceso,
+            sector: tt.sector,
+            cantMaxPorTipo: Number(tt.cantMaxPorTipo)
+          }))
+        } : undefined
+      },
+      include: {
+        tipoTickets: true
       }
     });
 
