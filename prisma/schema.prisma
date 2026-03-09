@@ -95,6 +95,7 @@ model Ticket {
   idCliente                    Int
   ofertaTransferenciaIdCliente Int?
   estado                       EstadoTicket @default(pagado)
+  paymentId                    String?
 
   cliente    Cliente    @relation(fields: [idCliente], references: [idCliente])
   tipoTicket TipoTicket @relation(fields: [idTipoTicket], references: [idTipoTicket])

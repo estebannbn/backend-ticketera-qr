@@ -1,13 +1,15 @@
 import { Request, Response } from "express";
 import { prisma } from "../prisma.js";
-import nodemailer from "nodemailer";
+import { MercadoPagoConfig, PaymentRefund } from "mercadopago";
+import { sendEventCancellationEmail, sendEventDateChangeEmail } from "../services/emailService.js";
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  }
+// Configuración de Mercado Pago
+if (!process.env.MP_ACCESS_TOKEN) {
+  throw new Error("MP_ACCESS_TOKEN no está definido en el .env");
+}
+
+const client = new MercadoPagoConfig({
+  accessToken: process.env.MP_ACCESS_TOKEN,
 });
 
 const crearEvento = async (req: Request, res: Response) => {
@@ -36,9 +38,14 @@ const crearEvento = async (req: Request, res: Response) => {
     const diasReembolso = politica?.diasReembolso || 0;
 
     // Calcular la fecha mínima permitida (hoy + diasReembolso)
-    const fechaMinima = new Date();
-    fechaMinima.setHours(0, 0, 0, 0);
-    fechaMinima.setDate(fechaMinima.getDate() + diasReembolso);
+    // Considerando la zona horaria UTC-3 (Argentina)
+    const OFFSET_ARG = -3 * 60 * 60 * 1000; // -3 horas
+    const ahoraArg = new Date(Date.now() + OFFSET_ARG);
+    ahoraArg.setUTCHours(0, 0, 0, 0);
+
+    // Convertir de nuevo a la medianoche real de Argentina referenciada en UTC absoluto
+    const fechaMinima = new Date(ahoraArg.getTime() - OFFSET_ARG);
+    fechaMinima.setUTCDate(fechaMinima.getUTCDate() + diasReembolso);
 
     if (nuevaFecha < fechaMinima) {
       return res.status(400).json({
@@ -88,8 +95,10 @@ const obtenerEventos = async (req: Request, res: Response) => {
       ? Number(req.query.idOrganizacion)
       : undefined;
 
+    const whereClause: any = idOrganizacion ? { idOrganizacion } : { estado: "ACTIVO" };
+
     const eventos = await prisma.evento.findMany({
-      where: idOrganizacion ? { idOrganizacion } : {},
+      where: whereClause,
       include: {
         categoria: true,
         organizacion: true,
@@ -168,9 +177,13 @@ const cambiarFechaEvento = async (req: Request, res: Response) => {
     const diasReembolso = politica?.diasReembolso || 0;
 
     // Calcular la fecha mínima permitida (hoy + diasReembolso)
-    const fechaMinima = new Date();
-    fechaMinima.setHours(0, 0, 0, 0); // Opcional, o usar .getTime()
-    fechaMinima.setDate(fechaMinima.getDate() + diasReembolso);
+    // Considerando la zona horaria UTC-3 (Argentina)
+    const OFFSET_ARG = -3 * 60 * 60 * 1000; // -3 horas
+    const ahoraArg = new Date(Date.now() + OFFSET_ARG);
+    ahoraArg.setUTCHours(0, 0, 0, 0);
+
+    const fechaMinima = new Date(ahoraArg.getTime() - OFFSET_ARG);
+    fechaMinima.setUTCDate(fechaMinima.getUTCDate() + diasReembolso);
 
     if (nuevaFecha < fechaMinima) {
       return res.status(400).json({
@@ -186,8 +199,43 @@ const cambiarFechaEvento = async (req: Request, res: Response) => {
       }
     });
 
+    const tickets = await prisma.ticket.findMany({
+      where: {
+        tipoTicket: { idEvento: id },
+        estado: { in: ["pagado", "pendiente_transferencia"] }
+      },
+      include: {
+        cliente: { include: { usuario: true } }
+      }
+    });
+
+    const mailsInfo = Array.from(
+      new Map(tickets.map(t => [t.cliente.usuario.mail, `${t.cliente.nombre} ${t.cliente.apellido}`]))
+    );
+
+    const fechaFormateada = nuevaFecha.toLocaleString('es-AR', {
+      timeZone: 'America/Argentina/Buenos_Aires',
+      dateStyle: 'full',
+      timeStyle: 'short'
+    });
+
+    const fechaAntiguaFormateada = evento.fechaHoraEvento.toLocaleString('es-AR', {
+      timeZone: 'America/Argentina/Buenos_Aires',
+      dateStyle: 'full',
+      timeStyle: 'short'
+    });
+
+    for (const [mail, nombreUsuario] of mailsInfo) {
+      await sendEventDateChangeEmail(mail, {
+        evento: evento.nombre,
+        fechaAntigua: fechaAntiguaFormateada,
+        fechaNueva: fechaFormateada,
+        usuario: String(nombreUsuario)
+      });
+    }
+
     res.status(200).json({
-      message: "Fecha del evento cambiada con éxito",
+      message: "Fecha del evento cambiada y clientes notificados",
       data: evento,
       error: false
     });
@@ -220,21 +268,52 @@ const cancelarEvento = async (req: Request, res: Response) => {
       }
     });
 
-    const mails = Array.from(
-      new Set(tickets.map(t => t.cliente.usuario.mail))
+    const mailsInfo = Array.from(
+      new Map(tickets.map(t => [t.cliente.usuario.mail, `${t.cliente.nombre} ${t.cliente.apellido}`]))
     );
 
-    for (const mail of mails) {
-      await transporter.sendMail({
-        from: process.env.EMAIL_USER,
-        to: mail,
-        subject: "Cancelación de evento",
-        text: `El evento "${evento.nombre}" ha sido cancelado.`
+    let reembolsadosCount = 0;
+    let erroresCount = 0;
+
+    for (const ticket of tickets) {
+      if (ticket.estado === "pagado" && ticket.paymentId) {
+        try {
+          const refund = new PaymentRefund(client);
+          await refund.create({ payment_id: Number(ticket.paymentId) });
+
+          await prisma.ticket.update({
+            where: { nroTicket: ticket.nroTicket },
+            data: { estado: "reembolsado" }
+          });
+          reembolsadosCount++;
+        } catch (err: any) {
+          console.error(`Error al reembolsar ticket ${ticket.nroTicket}:`, err.message || err);
+          erroresCount++;
+        }
+      } else if (["pendiente", "pendiente_transferencia"].includes(ticket.estado)) {
+        await prisma.ticket.update({
+          where: { nroTicket: ticket.nroTicket },
+          data: { estado: "expirado" }
+        });
+      }
+    }
+
+    const fechaCanceladaFormateada = evento.fechaHoraEvento.toLocaleString('es-AR', {
+      timeZone: 'America/Argentina/Buenos_Aires',
+      dateStyle: 'full',
+      timeStyle: 'short'
+    });
+
+    for (const [mail, nombreUsuario] of mailsInfo) {
+      await sendEventCancellationEmail(mail, {
+        evento: evento.nombre,
+        fecha: fechaCanceladaFormateada,
+        usuario: String(nombreUsuario)
       });
     }
 
     res.status(200).json({
-      message: "Evento cancelado y clientes notificados",
+      message: `Evento cancelado y clientes notificados. Reembolsos procesados: ${reembolsadosCount}. Errores: ${erroresCount}.`,
       error: false
     });
   } catch (error) {

@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import { prisma } from "./prisma.js";
 import mainRouter from "./routes/app.routes.js";
+import { startCronJobs } from "./services/cronService.js";
 import 'dotenv/config';
 
 // Cargar variables de entorno
@@ -25,6 +26,7 @@ app.use("/api", mainRouter);
 
 const server = app.listen(port, () => {
   console.log(`Server started on port ${port}`);
+  startCronJobs();
 });
 
 // Manejo de cierre para liberar la conexión de Prisma
