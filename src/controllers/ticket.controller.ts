@@ -75,20 +75,20 @@ const crearTicket = async (req: Request, res: Response): Promise<void> => {
     // 1.c Validar cupo total del evento
     // Sumamos todos los tickets válidos de todos los tipos de ticket de este evento
     const ticketsTotalesVendidos = await prisma.ticket.count({
-        where: {
-            tipoTicket: {
-                idEvento: tipoTicket.evento.idEvento
-            },
-            estado: { notIn: ['reembolsado', 'expirado'] }
-        }
+      where: {
+        tipoTicket: {
+          idEvento: tipoTicket.evento.idEvento
+        },
+        estado: { notIn: ['reembolsado', 'expirado'] }
+      }
     });
 
     if (ticketsTotalesVendidos >= tipoTicket.evento.capacidadMax) {
-        res.status(400).json({
-            message: "Lo sentimos, se ha alcanzado la capacidad máxima total del evento.",
-            error: true,
-        });
-        return;
+      res.status(400).json({
+        message: "Lo sentimos, se ha alcanzado la capacidad máxima total del evento.",
+        error: true,
+      });
+      return;
     }
 
     // 1.c Validar que el cliente exista y control de DNI (CU01)
@@ -1010,14 +1010,43 @@ const reembolsarTicket = async (req: Request, res: Response): Promise<void> => {
     }
 
     try {
-      const refund = new PaymentRefund(client);
-      await refund.create({ payment_id: Number(ticket.paymentId) });
+      // Usar el cliente global que ya tiene el token del .env
+      console.log(`Buscando reembolso para Ticket #${ticket.nroTicket}`);
+      console.log(`Usando MercadoPago Payment ID registrado: "${ticket.paymentId}" (Tipo: ${typeof ticket.paymentId})`);
+      console.log(`Token inicia en: ${process.env.MP_ACCESS_TOKEN?.substring(0, 10)}...`);
+
+      if (!ticket.paymentId) {
+        throw new Error("No hay un ID de pago (paymentId) asociado a este ticket.");
+      }
+      const idempotencyKey = randomBytes(16).toString("hex");
+
+      console.log(`Iniciando solicitud de reembolso directa para Pago ID: ${ticket.paymentId}`);
+      console.log(`Idempotency Key: ${idempotencyKey}`);
+
+      const response = await fetch(`https://api.mercadopago.com/v1/payments/${ticket.paymentId}/refunds`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.MP_ACCESS_TOKEN}`,
+          "X-Idempotency-Key": idempotencyKey,
+          "Content-Type": "application/json"
+        }
+      });
+
+      const data: any = await response.json();
+
+      if (!response.ok) {
+        console.error("Error en respuesta de Mercado Pago:", JSON.stringify(data, null, 2));
+        throw new Error(data.message || "Error al procesar el reembolso en Mercado Pago");
+      }
+
+      console.log("Reembolso procesado con éxito en Mercado Pago:", data.id);
     } catch (mpError: any) {
-      console.error(`Error al procesar reembolso en Mercado Pago para ticket ${ticket.nroTicket}:`, mpError.message || mpError);
+      console.error(`Error al procesar reembolso en Mercado Pago para ticket ${ticket.nroTicket}:`, mpError.message);
+
       res.status(500).json({
         message: "Error al procesar el reembolso en Mercado Pago",
         error: true,
-        details: mpError.response ? mpError.response : mpError.message
+        details: mpError.message
       });
       return;
     }
