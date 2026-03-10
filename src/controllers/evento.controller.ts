@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { prisma } from "../prisma.js";
 import { MercadoPagoConfig, PaymentRefund } from "mercadopago";
-import { sendEventCancellationEmail, sendEventDateChangeEmail } from "../services/emailService.js";
+import { sendEventCancellationEmail, sendEventDateChangeEmail, sendRefundEmail } from "../services/emailService.js";
 
 // Configuración de Mercado Pago
 if (!process.env.MP_ACCESS_TOKEN) {
@@ -209,6 +209,16 @@ const cambiarFechaEvento = async (req: Request, res: Response) => {
     const fechaMinima = new Date(ahoraArg.getTime() - OFFSET_ARG);
     fechaMinima.setUTCDate(fechaMinima.getUTCDate() + diasReembolso);
 
+    const eventoPrevio = await prisma.evento.findUnique({
+      where: { idEvento: id }
+    });
+
+    if (!eventoPrevio) {
+      return res.status(404).json({ message: "Evento no encontrado", error: true });
+    }
+
+    const fechaAntiguaOriginal = eventoPrevio.fechaHoraEvento;
+
     if (nuevaFecha < fechaMinima) {
       return res.status(400).json({
         message: `La fecha del evento debe ser al menos ${diasReembolso} días posterior al día de hoy, según la política de reembolsos vigente.`,
@@ -243,7 +253,7 @@ const cambiarFechaEvento = async (req: Request, res: Response) => {
       timeStyle: 'short'
     });
 
-    const fechaAntiguaFormateada = evento.fechaHoraEvento.toLocaleString('es-AR', {
+    const fechaAntiguaFormateada = fechaAntiguaOriginal.toLocaleString('es-AR', {
       timeZone: 'America/Argentina/Buenos_Aires',
       dateStyle: 'full',
       timeStyle: 'short'
@@ -302,16 +312,30 @@ const cancelarEvento = async (req: Request, res: Response) => {
     for (const ticket of tickets) {
       if (ticket.estado === "pagado" && ticket.paymentId) {
         try {
-          const refund = new PaymentRefund(client);
-          await refund.create({ payment_id: Number(ticket.paymentId) });
+          // Reembolso simulado igual al de ticket.controller.ts
+          console.log(`Simulando reembolso para Ticket #${ticket.nroTicket} (Payment ID: ${ticket.paymentId}) por cancelación de evento.`);
 
           await prisma.ticket.update({
             where: { nroTicket: ticket.nroTicket },
             data: { estado: "reembolsado" }
           });
+
+          // Obtener info del monto (precio del tipo de ticket)
+          const tipoTicket = await prisma.tipoTicket.findUnique({
+            where: { idTipoTicket: ticket.idTipoTicket }
+          });
+
+          // Enviar mail de reembolso individual
+          await sendRefundEmail(ticket.cliente.usuario.mail, {
+            evento: evento.nombre,
+            usuario: `${ticket.cliente.nombre} ${ticket.cliente.apellido}`,
+            nroTicket: ticket.nroTicket,
+            monto: Number(tipoTicket?.precio || 0)
+          });
+
           reembolsadosCount++;
         } catch (err: any) {
-          console.error(`Error al reembolsar ticket ${ticket.nroTicket}:`, err.message || err);
+          console.error(`Error al procesar simulación de reembolso para ticket ${ticket.nroTicket}:`, err.message || err);
           erroresCount++;
         }
       } else if (["pendiente", "pendiente_transferencia"].includes(ticket.estado)) {
