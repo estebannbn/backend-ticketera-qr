@@ -42,13 +42,13 @@ const crearTicket = async (req: Request, res: Response): Promise<void> => {
     }
 
     // Antes de chequear cupos, vencemos tickets pendientes antiguos para este tipo de ticket
-    const diezMinutosAtras = new Date(Date.now() - 10 * 60 * 1000);
+    const cincoMinutosAtras = new Date(Date.now() - 5 * 60 * 1000);
     await prisma.ticket.updateMany({
       where: {
         idTipoTicket: Number(idTipoTicket),
         estado: 'pendiente',
         fechaCreacion: {
-          lt: diezMinutosAtras
+          lt: cincoMinutosAtras
         }
       },
       data: {
@@ -566,14 +566,14 @@ const obtenerTicketsPorIdCliente = async (req: Request, res: Response): Promise<
       return;
     }
 
-    // Vencer tickets pendientes de pago más antiguos a 10 minutos
-    const diezMinutosAtras = new Date(Date.now() - 10 * 60 * 1000);
+    // Vencer tickets pendientes de pago más antiguos a 5 minutos
+    const cincoMinutosAtras = new Date(Date.now() - 5 * 60 * 1000);
     await prisma.ticket.updateMany({
       where: {
         idCliente: idCliente,
         estado: 'pendiente',
         fechaCreacion: {
-          lt: diezMinutosAtras
+          lt: cincoMinutosAtras
         }
       },
       data: {
@@ -588,9 +588,9 @@ const obtenerTicketsPorIdCliente = async (req: Request, res: Response): Promise<
           { ofertaTransferenciaIdCliente: idCliente }
         ],
         NOT: {
-          AND: [
-            { estado: 'expirado' }
-          ]
+          estado: {
+            in: ['expirado', 'pendiente']
+          }
         }
       },
       include: {
