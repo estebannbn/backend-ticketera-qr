@@ -56,20 +56,39 @@ const crearTicket = async (req: Request, res: Response): Promise<void> => {
       }
     });
 
-    // 1.b Validar cupos disponibles (CU01 Camino alternativo)
-    const ticketsVendidos = await prisma.ticket.count({
+    // 1.b Validar cupos disponibles por tipo de ticket
+    const ticketsVendidosPorTipo = await prisma.ticket.count({
       where: {
         idTipoTicket: Number(idTipoTicket),
-        estado: { notIn: ['reembolsado', 'expirado'] } // No contamos tickets cancelados
+        estado: { notIn: ['reembolsado', 'expirado'] } // No contamos tickets cancelados ni expirados
       }
     });
 
-    if (ticketsVendidos >= tipoTicket.cantMaxPorTipo) {
+    if (ticketsVendidosPorTipo >= tipoTicket.cantMaxPorTipo) {
       res.status(400).json({
         message: "Lo sentimos, no hay cupos disponibles para este tipo de ticket (Capacidad agotada)",
         error: true,
       });
       return;
+    }
+
+    // 1.c Validar cupo total del evento
+    // Sumamos todos los tickets válidos de todos los tipos de ticket de este evento
+    const ticketsTotalesVendidos = await prisma.ticket.count({
+        where: {
+            tipoTicket: {
+                idEvento: tipoTicket.evento.idEvento
+            },
+            estado: { notIn: ['reembolsado', 'expirado'] }
+        }
+    });
+
+    if (ticketsTotalesVendidos >= tipoTicket.evento.capacidadMax) {
+        res.status(400).json({
+            message: "Lo sentimos, se ha alcanzado la capacidad máxima total del evento.",
+            error: true,
+        });
+        return;
     }
 
     // 1.c Validar que el cliente exista y control de DNI (CU01)

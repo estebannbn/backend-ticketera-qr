@@ -102,7 +102,19 @@ const obtenerEventos = async (req: Request, res: Response) => {
       include: {
         categoria: true,
         organizacion: true,
-        tipoTickets: true
+        tipoTickets: {
+          include: {
+            _count: {
+              select: {
+                tickets: {
+                  where: {
+                    estado: { notIn: ['reembolsado', 'expirado'] }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     });
 
@@ -125,7 +137,19 @@ const obtenerEventosPorId = async (req: Request, res: Response) => {
       include: {
         categoria: true,
         organizacion: true,
-        tipoTickets: true
+        tipoTickets: {
+          include: {
+            _count: {
+              select: {
+                tickets: {
+                  where: {
+                    estado: { notIn: ['reembolsado', 'expirado'] }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     });
 
