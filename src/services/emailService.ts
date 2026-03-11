@@ -199,8 +199,8 @@ export const sendEventDateChangeEmail = async (
           <p>Te informamos que el evento <strong>${notificationInfo.evento}</strong> ha cambiado de fecha.</p>
           
           <div style="background-color: #fffbeb; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #f59e0b;">
-            <p style="margin: 5px 0;"><strong>Fecha Anterior:</strong> <del>${notificationInfo.fechaAntigua}</del></p>
-            <p style="margin: 5px 0;"><strong>Nueva Fecha:</strong> ${notificationInfo.fechaNueva}</p>
+            ${notificationInfo.fechaAntigua !== notificationInfo.fechaNueva ? `<p style="margin: 5px 0;"><strong>Fecha Anterior:</strong> <del>${notificationInfo.fechaAntigua}</del></p>` : ""}
+            <p style="margin: 5px 0;"><strong>${notificationInfo.fechaAntigua !== notificationInfo.fechaNueva ? "Nueva Fecha:" : "Fecha:"}</strong> ${notificationInfo.fechaNueva}</p>
           </div>
 
           <p style="color: #4b5563;">Tu entrada sigue siendo válida para la nueva fecha. Si no puedes asistir en esta nueva fecha, por favor, ponte en contacto con soporte.</p>
