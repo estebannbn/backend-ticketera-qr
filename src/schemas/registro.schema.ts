@@ -22,8 +22,11 @@ export const crearClienteSchema = z.object({
         apellido: z.string().min(2, "El apellido debe tener al menos 2 caracteres"),
         tipoDoc: z.enum(["DNI", "Pasaporte", "Cédula"]),
         nroDoc: z.string(),
-        fechaNacimiento: z.string().or(z.date()),
-        telefono: z.string().min(6, "El teléfono debe tener al menos 6 caracteres").max(15, "El teléfono no debe exceder los 15 caracteres").regex(/^\+?\d+$/, "Número de teléfono inválido").optional(),
+        fechaNacimiento: z.string().or(z.date()).refine((date) => {
+            const d = new Date(date);
+            return d <= new Date();
+        }, "La fecha de nacimiento no puede ser posterior a hoy"),
+        telefono: z.string().min(10, "El teléfono debe tener al menos 10 caracteres").max(20, "El teléfono no debe exceder los 20 caracteres").regex(/^\+?\d+$/, "Número de teléfono inválido").optional(),
         repetirContraseña: z.string().optional(),
     }).superRefine((data, ctx) => {
         if (data.contraseña !== data.repetirContraseña) {

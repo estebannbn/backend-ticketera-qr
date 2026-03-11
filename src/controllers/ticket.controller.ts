@@ -1131,6 +1131,69 @@ const reembolsarTicket = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
+const obtenerTicketPorToken = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { tokenQr } = req.params;
+    // @ts-ignore
+    const userPayload = req.user;
+
+    const ticket = await prisma.ticket.findUnique({
+      where: { tokenQr },
+      include: {
+        cliente: {
+          select: {
+            nombre: true,
+            apellido: true,
+            tipoDoc: true,
+            nroDoc: true,
+          },
+        },
+        tipoTicket: {
+          include: {
+            evento: true
+          }
+        }
+      }
+    });
+
+    if (!ticket) {
+      res.status(404).json({
+        message: "Ticket no encontrado",
+        error: true,
+      });
+      return;
+    }
+
+    // Validar que la organización sea la dueña del evento
+    if (userPayload && userPayload.rol === 'ORGANIZACION') {
+      const organizacion = await prisma.organizacion.findUnique({
+        where: { idUsuario: Number(userPayload.id) }
+      });
+
+      if (!organizacion || organizacion.idOrganizacion !== ticket.tipoTicket.evento.idOrganizacion) {
+        res.status(403).json({
+          message: "No tienes permiso para ver tickets de este evento",
+          error: true,
+        });
+        return;
+      }
+    }
+
+    res.status(200).json({
+      message: "Ticket obtenido con éxito",
+      data: ticket,
+      error: false,
+    });
+  } catch (error) {
+    console.error("Error en obtenerTicketPorToken:", error);
+    res.status(500).json({
+      message: "Error al obtener el ticket",
+      error: true,
+      details: (error as Error).message,
+    });
+  }
+};
+
 export default {
   crearTicket,
   obtenerTickets,
@@ -1139,6 +1202,7 @@ export default {
   actualizarTicket,
   obtenerTicketsPorIdCliente,
   consumirTicket,
+  obtenerTicketPorToken,
   recibirWebhook,
   transferirTicket,
   reembolsarTicket,

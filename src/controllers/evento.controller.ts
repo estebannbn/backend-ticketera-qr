@@ -217,6 +217,13 @@ const cambiarFechaEvento = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Evento no encontrado", error: true });
     }
 
+    if (eventoPrevio.estado !== "ACTIVO") {
+      return res.status(400).json({ 
+        message: `No se puede cambiar la fecha de un evento que no está ACTIVO (Estado actual: ${eventoPrevio.estado}).`, 
+        error: true 
+      });
+    }
+
     const fechaAntiguaOriginal = eventoPrevio.fechaHoraEvento;
 
     if (nuevaFecha < fechaMinima) {
@@ -460,41 +467,43 @@ const getEstadisticas = async (req: Request, res: Response) => {
 
 const getVentasPorHora = async (req: Request, res: Response) => {
   try {
-    const idOrganizacionStr = req.query.idOrganizacion as string;
-    const idOrganizacion = idOrganizacionStr ? Number(idOrganizacionStr) : undefined;
+    const { fechaInicio, fechaFin, idCategoria, idEvento, idTipoTicket, idOrganizacion } = req.query;
 
-    // We construct the query mapping dynamically for simplicity since $queryRaw doesn't easily handle dynamic optional WHEREs without raw SQL wrappers
-    let ventas;
-    if (idOrganizacion) {
-      ventas = await prisma.$queryRaw<{ hora: Date; ventas: bigint }[]>`
-        SELECT date_trunc('hour', t."fechaCreacion") as hora, count(*) as ventas
-        FROM "Ticket" t
-        JOIN "TipoTicket" tt ON t."idTipoTicket" = tt."idTipoTicket"
-        JOIN "Evento" e ON tt."idEvento" = e."idEvento"
-        WHERE e."idOrganizacion" = ${idOrganizacion}
-        GROUP BY hora
-        ORDER BY hora
-      `;
-    } else {
-      ventas = await prisma.$queryRaw<{ hora: Date; ventas: bigint }[]>`
-        SELECT date_trunc('hour', "fechaCreacion") as hora, count(*) as ventas
-        FROM "Ticket"
-        GROUP BY hora
-        ORDER BY hora
-      `;
-    }
+    // Construir filtros manuales para el query raw (más eficiente para date_trunc)
+    let conditions: string[] = ["t.estado IN ('pagado', 'consumido', 'pendiente_transferencia')"];
+    
+    if (idOrganizacion) conditions.push(`e."idOrganizacion" = ${Number(idOrganizacion)}`);
+    if (idCategoria) conditions.push(`e."idCategoria" = ${Number(idCategoria)}`);
+    if (idEvento) conditions.push(`e."idEvento" = ${Number(idEvento)}`);
+    if (idTipoTicket) conditions.push(`tt."idTipoTicket" = ${Number(idTipoTicket)}`);
+    if (fechaInicio) conditions.push(`t."fechaCreacion" >= '${fechaInicio}'`);
+    if (fechaFin) conditions.push(`t."fechaCreacion" <= '${fechaFin} 23:59:59'`);
 
-    const formattedVentas = ventas.map(v => ({
-      ...v,
-      ventas: Number(v.ventas)
-    }));
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+    // Query para obtener cantidad y recaudación agrupados por hora
+    const query = `
+      SELECT 
+        to_char(date_trunc('hour', t."fechaCreacion"), 'HH24:00') as hora, 
+        count(*)::integer as cantidad, 
+        sum(tt.precio)::float as recaudacion
+      FROM "Ticket" t
+      JOIN "TipoTicket" tt ON t."idTipoTicket" = tt."idTipoTicket"
+      JOIN "Evento" e ON tt."idEvento" = e."idEvento"
+      ${whereClause}
+      GROUP BY date_trunc('hour', t."fechaCreacion")
+      ORDER BY date_trunc('hour', t."fechaCreacion")
+    `;
+
+    const ventas = await prisma.$queryRawUnsafe<any[]>(query);
 
     res.status(200).json({
       message: "Ventas por hora obtenidas con éxito",
-      data: formattedVentas,
+      data: ventas,
       error: false
     });
   } catch (error) {
+    console.error("Error en getVentasPorHora:", error);
     res.status(500).json({ message: "Error al obtener ventas por hora", error: true });
   }
 };

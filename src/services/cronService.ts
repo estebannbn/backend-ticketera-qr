@@ -6,16 +6,12 @@ export const startCronJobs = () => {
   // Ejecutar cada 5 minutos para revisar eventos que ya pasaron
   cron.schedule("*/5 * * * *", async () => {
     try {
-      const ahora = new Date();
+      // Usamos el tiempo UTC actual directamente ya que Prisma almacena en UTC.
+      // Esto hace que el cálculo sea independiente de si el servidor está en Washington (iad1) o Londres.
+      const ahoraUTC = new Date();
 
-      // UTC-3
-      const OFFSET_ARG = -3 * 60 * 60 * 1000;
-      const ahoraArg = new Date(Date.now() + OFFSET_ARG);
-      const doceHorasAtrasArg = new Date(ahoraArg.getTime() - 12 * 60 * 60 * 1000);
-
-      // Buscar eventos que pasaron hace más de 12 horas y siguen ACTIVOS
-      // Comparamos restando el offset para buscar en UTC en la DB, ya que Prisma guarda en UTC.
-      const limiteFinalizacionUTC = new Date(doceHorasAtrasArg.getTime() - OFFSET_ARG);
+      // Consideramos que un evento ha finalizado 12 horas después de su inicio
+      const limiteFinalizacionUTC = new Date(ahoraUTC.getTime() - 12 * 60 * 60 * 1000);
 
       const eventosFinalizados = await prisma.evento.findMany({
         where: {
