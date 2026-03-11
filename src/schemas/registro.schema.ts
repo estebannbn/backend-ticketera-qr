@@ -26,7 +26,7 @@ export const crearClienteSchema = z.object({
             const d = new Date(date);
             return d <= new Date();
         }, "La fecha de nacimiento no puede ser posterior a hoy"),
-        telefono: z.string().min(10, "El teléfono debe tener al menos 10 caracteres").max(20, "El teléfono no debe exceder los 20 caracteres").regex(/^\+?\d+$/, "Número de teléfono inválido").optional(),
+        telefono: z.string().min(10, "El teléfono debe tener al menos 10 dígitos").max(20, "El teléfono no debe exceder los 20 dígitos").regex(/^\+?\d+$/, "El teléfono solo debe contener números").optional(),
         repetirContraseña: z.string().optional(),
     }).superRefine((data, ctx) => {
         if (data.contraseña !== data.repetirContraseña) {

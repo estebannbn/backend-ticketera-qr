@@ -182,27 +182,33 @@ const actualizarCliente = async (req: Request, res: Response) => {
       return;
     }
 
+    const updateData: any = {};
+    if (clienteData.nombre !== undefined) updateData.nombre = clienteData.nombre;
+    if (clienteData.apellido !== undefined) updateData.apellido = clienteData.apellido;
+    if (clienteData.tipoDoc !== undefined) updateData.tipoDoc = clienteData.tipoDoc;
+    if (clienteData.nroDoc !== undefined && clienteData.nroDoc !== clienteExistente.nroDoc) {
+      updateData.nroDoc = clienteData.nroDoc;
+    }
+    if (clienteData.fechaNacimiento !== undefined) updateData.fechaNacimiento = new Date(clienteData.fechaNacimiento);
+    if (clienteData.telefono !== undefined) updateData.telefono = clienteData.telefono;
+
+    const usuarioUpdateData: any = {};
+    if (clienteData.mail !== undefined && clienteData.mail !== clienteExistente.usuario.mail) {
+      usuarioUpdateData.mail = clienteData.mail;
+    }
+    if (clienteData.contraseña) {
+      usuarioUpdateData.contraseña = await encrypt(clienteData.contraseña);
+    }
+
     const [clienteActualizado] = await prisma.$transaction([
       prisma.cliente.update({
         where: { idCliente: parseInt(id) },
-        data: {
-          nombre: clienteData.nombre,
-          apellido: clienteData.apellido,
-          tipoDoc: clienteData.tipoDoc,
-          nroDoc: clienteData.nroDoc,
-          fechaNacimiento: new Date(clienteData.fechaNacimiento),
-          telefono: clienteData.telefono,
-        },
+        data: updateData,
         include: { usuario: true },
       }),
       prisma.usuario.update({
         where: { idUsuario: clienteExistente.idUsuario },
-        data: {
-          mail: clienteData.mail,
-          ...(clienteData.contraseña && {
-            contraseña: await encrypt(clienteData.contraseña),
-          }),
-        },
+        data: usuarioUpdateData,
       }),
     ]);
 
