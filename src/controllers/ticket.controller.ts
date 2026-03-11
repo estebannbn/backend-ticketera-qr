@@ -639,6 +639,8 @@ const obtenerTicketsPorIdCliente = async (req: Request, res: Response): Promise<
 const consumirTicket = async (req: Request, res: Response): Promise<void> => {
   try {
     const { tokenQr } = req.params;
+    // @ts-ignore
+    const userPayload = req.user;
 
     const ticket = await prisma.ticket.findUnique({
       where: { tokenQr },
@@ -657,6 +659,21 @@ const consumirTicket = async (req: Request, res: Response): Promise<void> => {
         error: true,
       });
       return;
+    }
+
+    // 1. Validar que la organización sea la dueña del evento (NUEVA SEGURIDAD)
+    if (userPayload && userPayload.rol === 'ORGANIZACION') {
+      const organizacion = await prisma.organizacion.findUnique({
+        where: { idUsuario: Number(userPayload.id) }
+      });
+
+      if (!organizacion || organizacion.idOrganizacion !== ticket.tipoTicket.evento.idOrganizacion) {
+        res.status(403).json({
+          message: "No tienes permiso para consumir tickets de este evento",
+          error: true,
+        });
+        return;
+      }
     }
 
     if (ticket.estado !== 'pagado') {
