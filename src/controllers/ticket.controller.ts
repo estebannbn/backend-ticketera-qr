@@ -696,7 +696,7 @@ const consumirTicket = async (req: Request, res: Response): Promise<void> => {
         message: msg,
         error: true,
         estadoActual: ticket.estado,
-        data: ticket 
+        data: ticket
       });
       return;
     }
