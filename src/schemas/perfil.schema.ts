@@ -14,7 +14,7 @@ export const actualizarClienteSchema = z.object({
             const d = new Date(date);
             return d <= new Date();
         }, "La fecha de nacimiento no puede ser posterior a hoy"),
-        telefono: z.string().min(10, "El teléfono debe tener al menos 10 caracteres").max(20, "El teléfono no debe exceder los 20 caracteres").regex(/^\+?\d+$/, "El número de teléfono debe ser válido").optional().or(z.literal("")),
+        telefono: z.string().min(10, "El teléfono debe tener al menos 10 dígitos").max(20, "El teléfono no debe exceder los 20 dígitos").regex(/^\+?\d+$/, "El teléfono solo debe contener números").optional().or(z.literal("")),
         mail: z.string().email("Email inválido").optional(),
         contraseña: z.string().min(6, "La contraseña debe tener al menos 6 caracteres").optional().or(z.literal("")),
     }).superRefine((data, ctx) => {
