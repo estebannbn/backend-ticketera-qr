@@ -9,8 +9,12 @@ export const actualizarClienteSchema = z.object({
         apellido: z.string().min(2, "El apellido debe tener al menos 2 caracteres").optional(),
         tipoDoc: z.enum(["DNI", "Pasaporte", "Cédula"]).optional(),
         nroDoc: z.string().optional(),
-        fechaNacimiento: z.string().or(z.date()).optional(),
-        telefono: z.string().min(6, "El teléfono debe tener al menos 6 caracteres").max(15, "El teléfono no debe exceder los 15 caracteres").regex(/^\+?\d+$/, "El número de teléfono debe ser válido").optional().or(z.literal("")),
+        fechaNacimiento: z.string().or(z.date()).optional().refine((date) => {
+            if (!date) return true;
+            const d = new Date(date);
+            return d <= new Date();
+        }, "La fecha de nacimiento no puede ser posterior a hoy"),
+        telefono: z.string().min(10, "El teléfono debe tener al menos 10 caracteres").max(20, "El teléfono no debe exceder los 20 caracteres").regex(/^\+?\d+$/, "El número de teléfono debe ser válido").optional().or(z.literal("")),
         mail: z.string().email("Email inválido").optional(),
         contraseña: z.string().min(6, "La contraseña debe tener al menos 6 caracteres").optional().or(z.literal("")),
     }).superRefine((data, ctx) => {
