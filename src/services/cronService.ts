@@ -1,22 +1,27 @@
 import cron from "node-cron";
 import { prisma } from "../prisma.js";
 import { EstadoEvento, EstadoTicket } from "@prisma/client";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc.js";
+import timezone from "dayjs/plugin/timezone.js";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+const TIMEZONE = "America/Argentina/Buenos_Aires";
 
 export const startCronJobs = () => {
   // Ejecutar cada 5 minutos para revisar eventos que ya pasaron
   cron.schedule("*/5 * * * *", async () => {
     try {
-      // Usamos el tiempo UTC actual directamente ya que Prisma almacena en UTC.
-      // Esto hace que el cálculo sea independiente de si el servidor está en Washington (iad1) o Londres.
-      const ahoraUTC = new Date();
-
-      // Consideramos que un evento ha finalizado 12 horas después de su inicio
-      const limiteFinalizacionUTC = new Date(ahoraUTC.getTime() - 12 * 60 * 60 * 1000);
+      // Calculamos el límite en Argentina timezone (UTC-3)
+      const ahoraArg = dayjs().tz(TIMEZONE);
+      const limiteFinalizacion = ahoraArg.subtract(12, 'hour').toDate();
 
       const eventosFinalizados = await prisma.evento.findMany({
         where: {
           fechaHoraEvento: {
-            lt: limiteFinalizacionUTC,
+            lt: limiteFinalizacion,
           },
           estado: EstadoEvento.ACTIVO,
         },
