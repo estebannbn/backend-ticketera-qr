@@ -642,9 +642,18 @@ const consumirTicket = async (req: Request, res: Response): Promise<void> => {
     // @ts-ignore
     const userPayload = req.user;
 
-    const ticket = await prisma.ticket.findUnique({
+    // Buscamos el ticket con TODAS las relaciones sociales desde el principio
+    let ticket = await prisma.ticket.findUnique({
       where: { tokenQr },
       include: {
+        cliente: {
+          select: {
+            nombre: true,
+            apellido: true,
+            tipoDoc: true,
+            nroDoc: true,
+          },
+        },
         tipoTicket: {
           include: {
             evento: true
@@ -676,6 +685,7 @@ const consumirTicket = async (req: Request, res: Response): Promise<void> => {
       }
     }
 
+    // Si no está pagado, devolvemos error pero incluimos la data del ticket para el frontend
     if (ticket.estado !== 'pagado') {
       let msg = "Solo se pueden consumir tickets pagados";
       if (ticket.estado === 'consumido') msg = "El ticket ya ha sido consumido";
@@ -685,7 +695,8 @@ const consumirTicket = async (req: Request, res: Response): Promise<void> => {
       res.status(400).json({
         message: msg,
         error: true,
-        estadoActual: ticket.estado
+        estadoActual: ticket.estado,
+        data: ticket 
       });
       return;
     }
@@ -706,7 +717,7 @@ const consumirTicket = async (req: Request, res: Response): Promise<void> => {
         message: "El ticket no puede ser consumido todavía. El escaneo inicia 4 horas antes del evento.",
         error: true,
         estadoActual: ticket.estado,
-        ticket: ticket,
+        data: ticket,
       });
       return;
     }
@@ -716,25 +727,47 @@ const consumirTicket = async (req: Request, res: Response): Promise<void> => {
         message: "El tiempo válido para consumir este ticket ha expirado. (Límite: 12 hs después del evento)",
         error: true,
         estadoActual: ticket.estado,
-        ticket: ticket,
+        data: ticket,
       });
       return;
     }
 
-    const ticketActualizado = await prisma.ticket.update({
-      where: { tokenQr },
+    // Actualizamos el ticket
+    await prisma.ticket.update({
+      where: { tokenQr: tokenQr },
       data: {
         estado: 'consumido',
         fechaConsumo: new Date()
       } as any,
     });
 
+    // Re-buscamos el ticket con TODAS las relaciones para estar 100% seguros
+    const finalTicket = await prisma.ticket.findUnique({
+      where: { tokenQr: tokenQr },
+      include: {
+        cliente: {
+          select: {
+            nombre: true,
+            apellido: true,
+            tipoDoc: true,
+            nroDoc: true,
+          },
+        },
+        tipoTicket: {
+          include: {
+            evento: true
+          }
+        }
+      }
+    });
+
     res.status(200).json({
       message: "Ticket consumido con éxito. ¡Bienvenido!",
-      data: ticketActualizado,
+      data: finalTicket,
       error: false,
     });
   } catch (error) {
+    console.error("Error en consumirTicket:", error);
     res.status(500).json({
       message: "Error al consumir el ticket",
       error: true,
@@ -951,7 +984,7 @@ const rechazarTransferencia = async (req: Request, res: Response): Promise<void>
 
     const ticketPrevio = await prisma.ticket.findUnique({
       where: { nroTicket: Number(nroTicket) },
-      include: { 
+      include: {
         cliente: { include: { usuario: true } },
         tipoTicket: { include: { evento: true } }
       }
@@ -1061,7 +1094,7 @@ const reembolsarTicket = async (req: Request, res: Response): Promise<void> => {
 
     // Simular el reembolso puesto que en Sandbox de MP no está habilitado para testing
     console.log(`Simulando reembolso para Ticket #${ticket.nroTicket} (Payment ID: ${ticket.paymentId})`);
-    
+
     // El código continúa directamente a la actualización en la base de datos
     const ticketReembolsado = await prisma.ticket.update({
       where: { nroTicket: Number(nroTicket) },
