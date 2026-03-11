@@ -418,7 +418,8 @@ const getEstadisticas = async (req: Request, res: Response) => {
       evento.tipoTickets.forEach(tt => {
         const precio = Number(tt.precio);
         tt.tickets.forEach(ticket => {
-          if (["pagado", "consumido", "pendiente_transferencia", "reembolsado"].includes(ticket.estado)) {
+          // Include 'expirado' tickets because they count towards total sales and revenue
+          if (["pagado", "consumido", "pendiente_transferencia", "reembolsado", "expirado"].includes(ticket.estado)) {
             vendidos++;
             if (ticket.estado === "reembolsado") {
               reembolsados++;
@@ -470,7 +471,8 @@ const getVentasPorHora = async (req: Request, res: Response) => {
     const { fechaInicio, fechaFin, idCategoria, idEvento, idTipoTicket, idOrganizacion } = req.query;
 
     // Construir filtros manuales para el query raw (más eficiente para date_trunc)
-    let conditions: string[] = ["t.estado IN ('pagado', 'consumido', 'pendiente_transferencia')"];
+    // Se incluye 'expirado' porque representan tickets cobrados
+    let conditions: string[] = ["t.estado IN ('pagado', 'consumido', 'pendiente_transferencia', 'expirado')"];
     
     if (idOrganizacion) conditions.push(`e."idOrganizacion" = ${Number(idOrganizacion)}`);
     if (idCategoria) conditions.push(`e."idCategoria" = ${Number(idCategoria)}`);
