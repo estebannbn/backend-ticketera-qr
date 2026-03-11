@@ -5,6 +5,14 @@ import { Request, Response } from "express";
 import { randomBytes } from "crypto";
 import { MercadoPagoConfig, Preference, Payment, PaymentRefund } from "mercadopago";
 import QRCode from "qrcode";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc.js";
+import timezone from "dayjs/plugin/timezone.js";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+const TIMEZONE = "America/Argentina/Buenos_Aires";
 
 // Configuración de Mercado Pago
 if (!process.env.MP_ACCESS_TOKEN) {
@@ -260,18 +268,12 @@ const procesarPago = async (req: Request, res: Response): Promise<void> => {
 
         const fechaHoraEvento = new Date(ticketPagado.tipoTicket?.evento?.fechaHoraEvento || new Date());
 
-        const OFFSET_ARG = -3 * 60 * 60 * 1000;
-        const fechaHoraEvtArg = new Date(fechaHoraEvento.getTime() + OFFSET_ARG);
-        const inicioRangoArg = new Date(fechaHoraEvtArg.getTime() - 4 * 60 * 60 * 1000);
-        const finRangoArg = new Date(fechaHoraEvtArg.getTime() + 12 * 60 * 60 * 1000);
+        const fechaHoraEvtArg = dayjs(fechaHoraEvento).tz(TIMEZONE);
+        const inicioRangoArg = fechaHoraEvtArg.subtract(4, 'hour');
+        const finRangoArg = fechaHoraEvtArg.add(12, 'hour');
 
-        const formatterTime = new Intl.DateTimeFormat('es-AR', {
-          timeZone: 'America/Argentina/Buenos_Aires',
-          hour: '2-digit', minute: '2-digit'
-        });
-
-        const timeInicio = formatterTime.format(inicioRangoArg);
-        const timeFin = formatterTime.format(finRangoArg);
+        const timeInicio = inicioRangoArg.format('HH:mm');
+        const timeFin = finRangoArg.format('HH:mm');
 
         await sendTicketEmail(ticketPagado.cliente.usuario.mail, {
           evento: ticketPagado.tipoTicket?.evento?.nombre || "Evento",
@@ -347,15 +349,12 @@ const recibirWebhook = async (req: Request, res: Response): Promise<void> => {
 
             const fechaHoraEvento = new Date(ticket.tipoTicket?.evento?.fechaHoraEvento || new Date());
 
-            const OFFSET_ARG = -3 * 60 * 60 * 1000;
-            const fechaHoraEvtArg = new Date(fechaHoraEvento.getTime() + OFFSET_ARG);
-            const inicioRangoArg = new Date(fechaHoraEvtArg.getTime() - 4 * 60 * 60 * 1000);
-            const finRangoArg = new Date(fechaHoraEvtArg.getTime() + 12 * 60 * 60 * 1000);
+            const fechaHoraEvtArg = dayjs(fechaHoraEvento).tz(TIMEZONE);
+            const inicioRangoArg = fechaHoraEvtArg.subtract(4, 'hour');
+            const finRangoArg = fechaHoraEvtArg.add(12, 'hour');
 
-            const formatterTime = new Intl.DateTimeFormat('es-AR', {
-              timeZone: 'America/Argentina/Buenos_Aires',
-              hour: '2-digit', minute: '2-digit'
-            });
+            const timeInicio = inicioRangoArg.format('HH:mm');
+            const timeFin = finRangoArg.format('HH:mm');
 
             await sendTicketEmail(ticket.cliente.usuario.mail, {
               evento: ticket.tipoTicket?.evento?.nombre || "Evento",
@@ -364,7 +363,7 @@ const recibirWebhook = async (req: Request, res: Response): Promise<void> => {
               precio: Number(ticket.tipoTicket?.precio || 0),
               nroTicket: ticket.nroTicket,
               qrData: ticket.tokenQr,
-              rangoHorario: `${formatterTime.format(inicioRangoArg)} hs a ${formatterTime.format(finRangoArg)} hs`
+              rangoHorario: `${timeInicio} hs a ${timeFin} hs`
             });
           }
         }
@@ -417,15 +416,12 @@ const sincronizarPago = async (req: Request, res: Response): Promise<void> => {
 
             const fechaHoraEvento = new Date(ticket.tipoTicket?.evento?.fechaHoraEvento || new Date());
 
-            const OFFSET_ARG = -3 * 60 * 60 * 1000;
-            const fechaHoraEvtArg = new Date(fechaHoraEvento.getTime() + OFFSET_ARG);
-            const inicioRangoArg = new Date(fechaHoraEvtArg.getTime() - 4 * 60 * 60 * 1000);
-            const finRangoArg = new Date(fechaHoraEvtArg.getTime() + 12 * 60 * 60 * 1000);
+            const fechaHoraEvtArg = dayjs(fechaHoraEvento).tz(TIMEZONE);
+            const inicioRangoArg = fechaHoraEvtArg.subtract(4, 'hour');
+            const finRangoArg = fechaHoraEvtArg.add(12, 'hour');
 
-            const formatterTime = new Intl.DateTimeFormat('es-AR', {
-              timeZone: 'America/Argentina/Buenos_Aires',
-              hour: '2-digit', minute: '2-digit'
-            });
+            const timeInicio = inicioRangoArg.format('HH:mm');
+            const timeFin = finRangoArg.format('HH:mm');
 
             await sendTicketEmail(ticket.cliente.usuario.mail, {
               evento: ticket.tipoTicket?.evento?.nombre || "Evento",
@@ -434,7 +430,7 @@ const sincronizarPago = async (req: Request, res: Response): Promise<void> => {
               precio: Number(ticket.tipoTicket?.precio || 0),
               nroTicket: ticket.nroTicket,
               qrData: ticket.tokenQr,
-              rangoHorario: `${formatterTime.format(inicioRangoArg)} hs a ${formatterTime.format(finRangoArg)} hs`
+              rangoHorario: `${timeInicio} hs a ${timeFin} hs`
             });
           }
         } else {
@@ -701,18 +697,14 @@ const consumirTicket = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Calcular límites de tiempo para consumo (UTC-3)
-    const OFFSET_ARG = -3 * 60 * 60 * 1000;
-    const ahoraArg = new Date(Date.now() + OFFSET_ARG);
+    // Calcular límites de tiempo para consumo con DayJS
+    const ahoraArg = dayjs().tz(TIMEZONE);
+    const fechaEventoArg = dayjs(ticket.tipoTicket.evento.fechaHoraEvento).tz(TIMEZONE);
 
-    // Obtener la fecha del evento en "tiempo absoluto" referenciado a Argentina
-    const fechaHoraEvento = ticket.tipoTicket.evento.fechaHoraEvento;
-    const fechaEventoArg = new Date(fechaHoraEvento.getTime() + OFFSET_ARG);
+    const limiteInicioHora = fechaEventoArg.subtract(4, 'hour'); // 4 horas antes
+    const limiteFinHora = fechaEventoArg.add(12, 'hour'); // 12 horas después
 
-    const limiteInicioHora = new Date(fechaEventoArg.getTime() - 4 * 60 * 60 * 1000); // 4 horas antes
-    const limiteFinHora = new Date(fechaEventoArg.getTime() + 12 * 60 * 60 * 1000); // 12 horas después
-
-    if (ahoraArg < limiteInicioHora) {
+    if (ahoraArg.isBefore(limiteInicioHora)) {
       res.status(400).json({
         message: "El ticket no puede ser consumido todavía. El escaneo inicia 4 horas antes del evento.",
         error: true,
@@ -722,7 +714,7 @@ const consumirTicket = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    if (ahoraArg > limiteFinHora) {
+    if (ahoraArg.isAfter(limiteFinHora)) {
       res.status(400).json({
         message: "El tiempo válido para consumir este ticket ha expirado. (Límite: 12 hs después del evento)",
         error: true,
@@ -1072,9 +1064,9 @@ const reembolsarTicket = async (req: Request, res: Response): Promise<void> => {
     });
 
     const diasLimite = politica?.diasReembolso || 7;
-    const fechaEvento = new Date(ticket.tipoTicket.evento.fechaHoraEvento);
-    const hoy = new Date();
-    const diferenciaDias = (fechaEvento.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24);
+    const fechaEvento = dayjs(ticket.tipoTicket.evento.fechaHoraEvento).tz(TIMEZONE);
+    const hoy = dayjs().tz(TIMEZONE);
+    const diferenciaDias = fechaEvento.diff(hoy, 'day', true);
 
     if (diferenciaDias < diasLimite) {
       res.status(400).json({
