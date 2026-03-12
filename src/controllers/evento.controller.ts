@@ -110,7 +110,7 @@ const obtenerEventos = async (req: Request, res: Response) => {
               select: {
                 tickets: {
                   where: {
-                    estado: { notIn: ['reembolsado', 'expirado'] }
+                    estado: { notIn: ['reembolsado', 'expirado', 'pendiente'] }
                   }
                 }
               }
@@ -145,7 +145,7 @@ const obtenerEventosPorId = async (req: Request, res: Response) => {
               select: {
                 tickets: {
                   where: {
-                    estado: { notIn: ['reembolsado', 'expirado'] }
+                    estado: { notIn: ['reembolsado', 'expirado', 'pendiente'] }
                   }
                 }
               }
@@ -173,6 +173,25 @@ const eliminarEvento = async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
 
+    // Verificar si el evento existe antes de intentar eliminar
+    const eventoExistente = await prisma.evento.findUnique({
+      where: { idEvento: id }
+    });
+
+    if (!eventoExistente) {
+      return res.status(404).json({ message: "El evento no existe o ya fue eliminado.", error: true });
+    }
+
+    // Primero eliminamos todos los tickets asociados a través de los TipoTicket
+    await prisma.ticket.deleteMany({
+      where: {
+        tipoTicket: {
+          idEvento: id
+        }
+      }
+    });
+
+    // Ahora eliminamos el evento
     await prisma.evento.delete({
       where: { idEvento: id }
     });
@@ -181,8 +200,13 @@ const eliminarEvento = async (req: Request, res: Response) => {
       message: "Evento eliminado con éxito",
       error: false
     });
-  } catch (error) {
-    res.status(500).json({ message: "Error al eliminar evento", error: true });
+  } catch (error: any) {
+    console.error("Error al eliminar evento:", error);
+    res.status(500).json({ 
+      message: "Error al eliminar evento", 
+      error: true,
+      details: error.code === 'P2003' ? "No se puede eliminar porque existen registros relacionados." : error.message
+    });
   }
 };
 
@@ -250,17 +274,8 @@ const cambiarFechaEvento = async (req: Request, res: Response) => {
       new Map(tickets.map(t => [t.cliente.usuario.mail, `${t.cliente.nombre} ${t.cliente.apellido}`]))
     );
 
-    const fechaFormateada = nuevaFecha.toLocaleString('es-AR', {
-      timeZone: 'America/Argentina/Buenos_Aires',
-      dateStyle: 'full',
-      timeStyle: 'short'
-    });
-
-    const fechaAntiguaFormateada = fechaAntiguaOriginal.toLocaleString('es-AR', {
-      timeZone: 'America/Argentina/Buenos_Aires',
-      dateStyle: 'full',
-      timeStyle: 'short'
-    });
+    const fechaFormateada = dayjs(nuevaFecha).tz(TIMEZONE).format('DD/MM/YYYY HH:mm');
+    const fechaAntiguaFormateada = dayjs(fechaAntiguaOriginal).tz(TIMEZONE).format('DD/MM/YYYY HH:mm');
 
     for (const [mail, nombreUsuario] of mailsInfo) {
       await sendEventDateChangeEmail(mail, {
@@ -349,11 +364,7 @@ const cancelarEvento = async (req: Request, res: Response) => {
       }
     }
 
-    const fechaCanceladaFormateada = evento.fechaHoraEvento.toLocaleString('es-AR', {
-      timeZone: 'America/Argentina/Buenos_Aires',
-      dateStyle: 'full',
-      timeStyle: 'short'
-    });
+    const fechaCanceladaFormateada = dayjs(evento.fechaHoraEvento).tz(TIMEZONE).format('DD/MM/YYYY HH:mm');
 
     for (const [mail, nombreUsuario] of mailsInfo) {
       await sendEventCancellationEmail(mail, {
