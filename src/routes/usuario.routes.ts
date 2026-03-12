@@ -11,6 +11,7 @@ router.get('/', usuarioController.obtenerUsuario);
 router.post('/login', validate(loginSchema), usuarioController.loginUsuario);
 router.post('/forgot-password', validate(forgotPasswordSchema), usuarioController.forgotPassword);
 router.post('/reset-password', validate(resetPasswordSchema), usuarioController.resetPassword);
+router.put('/:idUsuario', checkSession, usuarioController.actualizarUsuario);
 router.post('/logout', usuarioController.logoutUsuario);
 router.get('/me', checkSession, usuarioController.getUsuarioLogueado);
 

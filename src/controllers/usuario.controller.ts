@@ -208,4 +208,37 @@ const resetPassword = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-export default { crearUsuario, obtenerUsuario, loginUsuario, getUsuarioLogueado, logoutUsuario, forgotPassword, resetPassword };
+const actualizarUsuario = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { idUsuario } = req.params;
+    const { mail, contraseña } = req.body;
+
+    const data: any = {};
+    if (mail) data.mail = mail;
+    if (contraseña) data.contraseña = await encrypt(contraseña);
+
+    const usuario = await prisma.usuario.update({
+      where: { idUsuario: Number(idUsuario) },
+      data,
+    });
+
+    res.status(200).json({
+      message: "Usuario actualizado con éxito",
+      data: {
+        idUsuario: usuario.idUsuario,
+        mail: usuario.mail,
+        rol: usuario.rol
+      },
+      error: false,
+    });
+  } catch (error) {
+    console.error("Error en actualizarUsuario:", error);
+    res.status(500).json({
+      message: "Error al actualizar el usuario",
+      error: true,
+      details: (error as Error).message,
+    });
+  }
+};
+
+export default { crearUsuario, obtenerUsuario, loginUsuario, getUsuarioLogueado, logoutUsuario, forgotPassword, resetPassword, actualizarUsuario };
