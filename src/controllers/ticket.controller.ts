@@ -23,7 +23,6 @@ const client = new MercadoPagoConfig({
   accessToken: process.env.MP_ACCESS_TOKEN,
 });
 
-console.log(">>> TICKET_CONTROLLER_LOADED_VER_3 <<<");
 
 const crearTicket = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -305,7 +304,7 @@ const procesarPago = async (req: Request, res: Response): Promise<void> => {
           precio: Number(ticketPagado.tipoTicket?.precio || 0),
           nroTicket: ticketPagado.nroTicket,
           qrData: ticketPagado.tokenQr,
-          rangoHorario: `${timeInicio} a ${timeFin} (Desde 4h antes hasta 12h después)`
+          rangoHorario: `${timeInicio} a ${timeFin}`
         });
       }
 
@@ -410,7 +409,7 @@ const recibirWebhook = async (req: Request, res: Response): Promise<void> => {
               precio: Number(ticket.tipoTicket?.precio || 0),
               nroTicket: ticket.nroTicket,
               qrData: ticket.tokenQr,
-              rangoHorario: `${timeInicio} a ${timeFin} (Desde 4h antes hasta 12h después)`
+              rangoHorario: `${timeInicio} a ${timeFin}`
             });
           }
         }
@@ -503,7 +502,7 @@ const sincronizarPago = async (req: Request, res: Response): Promise<void> => {
               precio: Number(ticket.tipoTicket?.precio || 0),
               nroTicket: ticket.nroTicket,
               qrData: ticket.tokenQr,
-              rangoHorario: `${timeInicio} a ${timeFin} (Desde 4h antes hasta 12h después)`
+              rangoHorario: `${timeInicio} a ${timeFin}`
             });
           }
         } else {
