@@ -1164,7 +1164,7 @@ const obtenerTicketPorToken = async (req: Request, res: Response): Promise<void>
 
       if (!organizacion || organizacion.idOrganizacion !== ticket.tipoTicket.evento.idOrganizacion) {
         res.status(403).json({
-          message: "No tienes permiso para ver tickets de este evento",
+          message: "No tienes permiso para consumir tickets de este evento",
           error: true,
         });
         return;
