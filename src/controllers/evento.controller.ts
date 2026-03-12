@@ -476,31 +476,32 @@ const getVentasPorHora = async (req: Request, res: Response) => {
   try {
     const { fechaInicio, fechaFin, idCategoria, idEvento, idTipoTicket, idOrganizacion } = req.query;
 
-    // Construir filtros manuales para el query raw (más eficiente para date_trunc)
-    // Se incluye 'expirado' porque representan tickets cobrados
+    const timezoneStr = 'America/Argentina/Buenos_Aires';
+    const localTimestamp = `t."fechaCreacion" AT TIME ZONE 'UTC' AT TIME ZONE '${timezoneStr}'`;
+
     let conditions: string[] = ["t.estado IN ('pagado', 'consumido', 'pendiente_transferencia', 'expirado')"];
 
     if (idOrganizacion) conditions.push(`e."idOrganizacion" = ${Number(idOrganizacion)}`);
     if (idCategoria) conditions.push(`e."idCategoria" = ${Number(idCategoria)}`);
     if (idEvento) conditions.push(`e."idEvento" = ${Number(idEvento)}`);
     if (idTipoTicket) conditions.push(`tt."idTipoTicket" = ${Number(idTipoTicket)}`);
-    if (fechaInicio) conditions.push(`t."fechaCreacion" >= '${fechaInicio}'`);
-    if (fechaFin) conditions.push(`t."fechaCreacion" <= '${fechaFin} 23:59:59'`);
+    if (fechaInicio) conditions.push(`${localTimestamp} >= '${fechaInicio}'`);
+    if (fechaFin) conditions.push(`${localTimestamp} <= '${fechaFin} 23:59:59'`);
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
-    // Query para obtener cantidad y recaudación agrupados por hora
+    // Query para obtener cantidad y recaudación agrupados por hora (normalizado a Argentina)
     const query = `
       SELECT 
-        to_char(date_trunc('hour', t."fechaCreacion"), 'HH24:00') as hora, 
+        to_char(date_trunc('hour', ${localTimestamp}), 'HH24:00') as hora, 
         count(*)::integer as cantidad, 
         sum(tt.precio)::float as recaudacion
       FROM "Ticket" t
       JOIN "TipoTicket" tt ON t."idTipoTicket" = tt."idTipoTicket"
       JOIN "Evento" e ON tt."idEvento" = e."idEvento"
       ${whereClause}
-      GROUP BY date_trunc('hour', t."fechaCreacion")
-      ORDER BY date_trunc('hour', t."fechaCreacion")
+      GROUP BY date_trunc('hour', ${localTimestamp})
+      ORDER BY date_trunc('hour', ${localTimestamp})
     `;
 
     const ventas = await prisma.$queryRawUnsafe<any[]>(query);
