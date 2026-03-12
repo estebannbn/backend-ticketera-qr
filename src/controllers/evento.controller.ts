@@ -218,9 +218,9 @@ const cambiarFechaEvento = async (req: Request, res: Response) => {
     }
 
     if (eventoPrevio.estado !== "ACTIVO") {
-      return res.status(400).json({ 
-        message: `No se puede cambiar la fecha de un evento que no está ACTIVO (Estado actual: ${eventoPrevio.estado}).`, 
-        error: true 
+      return res.status(400).json({
+        message: `No se puede cambiar la fecha de un evento que no está ACTIVO (Estado actual: ${eventoPrevio.estado}).`,
+        error: true
       });
     }
 
@@ -473,7 +473,7 @@ const getVentasPorHora = async (req: Request, res: Response) => {
     // Construir filtros manuales para el query raw (más eficiente para date_trunc)
     // Se incluye 'expirado' porque representan tickets cobrados
     let conditions: string[] = ["t.estado IN ('pagado', 'consumido', 'pendiente_transferencia', 'expirado')"];
-    
+
     if (idOrganizacion) conditions.push(`e."idOrganizacion" = ${Number(idOrganizacion)}`);
     if (idCategoria) conditions.push(`e."idCategoria" = ${Number(idCategoria)}`);
     if (idEvento) conditions.push(`e."idEvento" = ${Number(idEvento)}`);
