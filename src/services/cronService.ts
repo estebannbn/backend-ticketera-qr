@@ -68,5 +68,30 @@ export const startCronJobs = () => {
     }
   });
 
+  // Ejecutar cada minuto para limpiar tickets pendientes vencidos (5 min)
+  cron.schedule("* * * * *", async () => {
+    try {
+      const cincoMinutosAtras = dayjs().subtract(5, 'minute').toDate();
+
+      const resultado = await prisma.ticket.updateMany({
+        where: {
+          estado: EstadoTicket.pendiente,
+          fechaCreacion: {
+            lt: cincoMinutosAtras
+          }
+        },
+        data: {
+          estado: EstadoTicket.expirado
+        }
+      });
+
+      if (resultado.count > 0) {
+        console.log(`CronJob: Se limpiaron ${resultado.count} tickets pendientes vencidos.`);
+      }
+    } catch (error) {
+      console.error("CronJob Error al limpiar tickets pendientes:", error);
+    }
+  });
+
   console.log("Servicio de Cron Jobs (Tareas Programadas) iniciado.");
 };
