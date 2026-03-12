@@ -34,7 +34,7 @@ export const sendTicketEmail = async (
         const mailOptions = {
             from: `"Ticketera QR" <${process.env.SMTP_USER}>`,
             to: email,
-            subject: `¡Tu entrada para ${ticketInfo.evento} está lista!`,
+            subject: `[TICKET-24h] Tu entrada para ${ticketInfo.evento} está lista!`,
             html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
           <h2 style="color: #4F46E5; text-align: center;">¡Compra Confirmada!</h2>
@@ -43,8 +43,9 @@ export const sendTicketEmail = async (
           
           <div style="background-color: #f9fafb; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
             <p style="margin: 5px 0;"><strong>Evento:</strong> ${ticketInfo.evento}</p>
-            <p style="margin: 5px 0;"><strong>Fecha:</strong> ${ticketInfo.fecha}</p>
-            <p style="margin: 5px 0;"><strong>Horario de Acceso:</strong> ${ticketInfo.rangoHorario}</p>
+            <p style="margin: 5px 0;"><strong>Fecha y Hora del Evento:</strong> ${ticketInfo.fecha} hs (Formato 24h)</p>
+            <p style="margin: 5px 0;"><strong>Rango de Acceso (QR):</strong> ${ticketInfo.rangoHorario}</p>
+            <p style="margin: 5px 0; font-size: 0.85em; color: #666;">(El QR es válido desde 4 horas antes hasta 12 horas después del evento)</p>
             <p style="margin: 5px 0;"><strong>Precio:</strong> $${ticketInfo.precio}</p>
             <p style="margin: 5px 0;"><strong>Nro. Ticket:</strong> #${ticketInfo.nroTicket}</p>
           </div>
@@ -53,6 +54,9 @@ export const sendTicketEmail = async (
              <p style="color: #4b5563; margin-bottom: 20px;">Puedes ver y descargar tu código QR accediendo a tu cuenta:</p>
              <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/clientes/mis-tickets" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Ver Mis Tickets</a>
           </div>
+          <p style="text-align: center; font-size: 10px; color: #ccc; margin-top: 40px; border-top: 1px solid #eee; padding-top: 10px;">
+            Ticketera QR - Sistema de validación de seguridad (v2.2 - 24h)
+          </p>
         </div>
       `,
         };
