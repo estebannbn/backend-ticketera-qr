@@ -1,4 +1,5 @@
 import { z } from "zod";
+import dayjs from "dayjs";
 
 const validarCUIT = (cuit: string): boolean => {
     cuit = cuit.replace(/[-_]/g, "");
@@ -23,8 +24,8 @@ export const crearClienteSchema = z.object({
         tipoDoc: z.enum(["DNI", "Pasaporte", "Cédula"]),
         nroDoc: z.string(),
         fechaNacimiento: z.string().or(z.date()).refine((date) => {
-            const d = new Date(date);
-            return d <= new Date();
+            const d = dayjs(date);
+            return d.isBefore(dayjs()) || d.isSame(dayjs(), 'day');
         }, "La fecha de nacimiento no puede ser posterior a hoy"),
         telefono: z.string().min(10, "El teléfono debe tener al menos 10 dígitos").max(20, "El teléfono no debe exceder los 20 dígitos").regex(/^\+?\d+$/, "El teléfono solo debe contener números").optional(),
         repetirContraseña: z.string().optional(),

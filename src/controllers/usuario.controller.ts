@@ -5,6 +5,14 @@ import { encrypt, verified } from "../utils/handleCrypt.js";
 import { generateToken } from "../utils/jwt.handle.js";
 import * as crypto from "crypto";
 import { sendPasswordResetEmail } from "../services/emailService.js";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc.js";
+import timezone from "dayjs/plugin/timezone.js";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+const TIMEZONE = "America/Argentina/Buenos_Aires";
 
 // Solo crea ADMINS
 const crearUsuario = async (req: Request, res: Response): Promise<void> => {
@@ -155,7 +163,7 @@ const forgotPassword = async (req: Request, res: Response): Promise<void> => {
     }
 
     const token = crypto.randomBytes(20).toString('hex');
-    const expires = new Date(Date.now() + 3600000); // 1 hora
+    const expires = dayjs().add(1, 'hour').toDate(); // 1 hora
 
     await prisma.usuario.update({
       where: { idUsuario: usuario.idUsuario },
@@ -185,7 +193,7 @@ const resetPassword = async (req: Request, res: Response): Promise<void> => {
       }
     });
 
-    if (!usuario || !usuario.resetTokenExpires || new Date(usuario.resetTokenExpires) < new Date()) {
+    if (!usuario || !usuario.resetTokenExpires || dayjs().isAfter(dayjs(usuario.resetTokenExpires))) {
       res.status(400).json({ message: "Token inválido o expirado", error: true });
       return;
     }

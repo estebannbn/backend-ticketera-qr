@@ -1,4 +1,5 @@
 import { z } from "zod";
+import dayjs from "dayjs";
 
 export const actualizarClienteSchema = z.object({
     params: z.object({
@@ -11,8 +12,8 @@ export const actualizarClienteSchema = z.object({
         nroDoc: z.string().optional(),
         fechaNacimiento: z.string().or(z.date()).optional().refine((date) => {
             if (!date) return true;
-            const d = new Date(date);
-            return d <= new Date();
+            const d = dayjs(date);
+            return d.isBefore(dayjs()) || d.isSame(dayjs(), 'day');
         }, "La fecha de nacimiento no puede ser posterior a hoy"),
         telefono: z.string().min(10, "El teléfono debe tener al menos 10 dígitos").max(20, "El teléfono no debe exceder los 20 dígitos").regex(/^\+?\d+$/, "El teléfono solo debe contener números").optional().or(z.literal("")),
         mail: z.string().email("Email inválido").optional(),

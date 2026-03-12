@@ -50,7 +50,7 @@ const crearTicket = async (req: Request, res: Response): Promise<void> => {
     }
 
     // Antes de chequear cupos, vencemos tickets pendientes antiguos para este tipo de ticket
-    const cincoMinutosAtras = new Date(Date.now() - 5 * 60 * 1000);
+    const cincoMinutosAtras = dayjs().subtract(5, 'minute').toDate();
     await prisma.ticket.updateMany({
       where: {
         idTipoTicket: Number(idTipoTicket),
@@ -129,7 +129,7 @@ const crearTicket = async (req: Request, res: Response): Promise<void> => {
       // Actualizamos la fecha de creación para darle otros 10 minutos de gracia
       await prisma.ticket.update({
         where: { nroTicket: ticket.nroTicket },
-        data: { fechaCreacion: new Date() }
+        data: { fechaCreacion: dayjs().toDate() }
       });
       console.log(`Reutilizando ticket pendiente #${ticket.nroTicket}`);
     } else {
@@ -266,7 +266,7 @@ const procesarPago = async (req: Request, res: Response): Promise<void> => {
       if (ticketPagado.cliente?.usuario?.mail) {
         const { sendTicketEmail } = await import("../services/emailService.js");
 
-        const fechaHoraEvento = new Date(ticketPagado.tipoTicket?.evento?.fechaHoraEvento || new Date());
+        const fechaHoraEvento = dayjs(ticketPagado.tipoTicket?.evento?.fechaHoraEvento || dayjs()).toDate();
 
         const fechaHoraEvtArg = dayjs(fechaHoraEvento).tz(TIMEZONE);
         const inicioRangoArg = fechaHoraEvtArg.subtract(4, 'hour');
@@ -347,7 +347,7 @@ const recibirWebhook = async (req: Request, res: Response): Promise<void> => {
           if (ticket.cliente?.usuario?.mail) {
             const { sendTicketEmail } = await import("../services/emailService.js");
 
-            const fechaHoraEvento = new Date(ticket.tipoTicket?.evento?.fechaHoraEvento || new Date());
+            const fechaHoraEvento = dayjs(ticket.tipoTicket?.evento?.fechaHoraEvento || dayjs()).toDate();
 
             const fechaHoraEvtArg = dayjs(fechaHoraEvento).tz(TIMEZONE);
             const inicioRangoArg = fechaHoraEvtArg.subtract(4, 'hour');
@@ -414,7 +414,7 @@ const sincronizarPago = async (req: Request, res: Response): Promise<void> => {
           if (ticket.cliente?.usuario?.mail) {
             const { sendTicketEmail } = await import("../services/emailService.js");
 
-            const fechaHoraEvento = new Date(ticket.tipoTicket?.evento?.fechaHoraEvento || new Date());
+            const fechaHoraEvento = dayjs(ticket.tipoTicket?.evento?.fechaHoraEvento || dayjs()).toDate();
 
             const fechaHoraEvtArg = dayjs(fechaHoraEvento).tz(TIMEZONE);
             const inicioRangoArg = fechaHoraEvtArg.subtract(4, 'hour');
@@ -563,7 +563,7 @@ const obtenerTicketsPorIdCliente = async (req: Request, res: Response): Promise<
     }
 
     // Vencer tickets pendientes de pago más antiguos a 5 minutos
-    const cincoMinutosAtras = new Date(Date.now() - 5 * 60 * 1000);
+    const cincoMinutosAtras = dayjs().subtract(5, 'minute').toDate();
     await prisma.ticket.updateMany({
       where: {
         idCliente: idCliente,
@@ -729,7 +729,7 @@ const consumirTicket = async (req: Request, res: Response): Promise<void> => {
       where: { tokenQr: tokenQr },
       data: {
         estado: 'consumido',
-        fechaConsumo: new Date()
+        fechaConsumo: dayjs().toDate()
       } as any,
     });
 

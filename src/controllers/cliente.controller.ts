@@ -2,6 +2,14 @@ import { Rol, Prisma } from "@prisma/client";
 import { prisma } from "../prisma.js";
 import { Request, Response } from "express";
 import { encrypt } from "../utils/handleCrypt.js";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc.js";
+import timezone from "dayjs/plugin/timezone.js";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+const TIMEZONE = "America/Argentina/Buenos_Aires";
 
 const crearCliente = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -23,7 +31,7 @@ const crearCliente = async (req: Request, res: Response): Promise<void> => {
         apellido,
         tipoDoc,
         nroDoc,
-        fechaNacimiento: new Date(fechaNacimiento),
+        fechaNacimiento: dayjs.tz(fechaNacimiento, TIMEZONE).toDate(),
         telefono,
         usuario: {
           create: {
@@ -189,7 +197,7 @@ const actualizarCliente = async (req: Request, res: Response) => {
     if (clienteData.nroDoc !== undefined && clienteData.nroDoc !== clienteExistente.nroDoc) {
       updateData.nroDoc = clienteData.nroDoc;
     }
-    if (clienteData.fechaNacimiento !== undefined) updateData.fechaNacimiento = new Date(clienteData.fechaNacimiento);
+    if (clienteData.fechaNacimiento !== undefined) updateData.fechaNacimiento = dayjs.tz(clienteData.fechaNacimiento, TIMEZONE).toDate();
     if (clienteData.telefono !== undefined) updateData.telefono = clienteData.telefono;
 
     const usuarioUpdateData: any = {};

@@ -2,6 +2,14 @@ import { Request, Response } from "express";
 import { prisma } from "../prisma.js";
 import { MercadoPagoConfig, PaymentRefund } from "mercadopago";
 import { sendEventCancellationEmail, sendEventDateChangeEmail, sendRefundEmail } from "../services/emailService.js";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc.js";
+import timezone from "dayjs/plugin/timezone.js";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+const TIMEZONE = "America/Argentina/Buenos_Aires";
 
 // Configuración de Mercado Pago
 if (!process.env.MP_ACCESS_TOKEN) {
@@ -26,7 +34,7 @@ const crearEvento = async (req: Request, res: Response) => {
       tipoTickets
     } = req.body;
 
-    const nuevaFecha = new Date(fechaHoraEvento);
+    const nuevaFecha = dayjs.tz(fechaHoraEvento, TIMEZONE).toDate();
 
     // Obtener la política actual
     const politica = await prisma.politica.findFirst({
@@ -39,13 +47,7 @@ const crearEvento = async (req: Request, res: Response) => {
 
     // Calcular la fecha mínima permitida (hoy + diasReembolso)
     // Considerando la zona horaria UTC-3 (Argentina)
-    const OFFSET_ARG = -3 * 60 * 60 * 1000; // -3 horas
-    const ahoraArg = new Date(Date.now() + OFFSET_ARG);
-    ahoraArg.setUTCHours(0, 0, 0, 0);
-
-    // Convertir de nuevo a la medianoche real de Argentina referenciada en UTC absoluto
-    const fechaMinima = new Date(ahoraArg.getTime() - OFFSET_ARG);
-    fechaMinima.setUTCDate(fechaMinima.getUTCDate() + diasReembolso);
+    const fechaMinima = dayjs().tz(TIMEZONE).startOf('day').add(diasReembolso, 'day').toDate();
 
     if (nuevaFecha < fechaMinima) {
       return res.status(400).json({
@@ -189,7 +191,7 @@ const cambiarFechaEvento = async (req: Request, res: Response) => {
     const id = Number(req.params.id);
     const { fechaHoraEvento } = req.body;
 
-    const nuevaFecha = new Date(fechaHoraEvento);
+    const nuevaFecha = dayjs.tz(fechaHoraEvento, TIMEZONE).toDate();
 
     // Obtener la política actual
     const politica = await prisma.politica.findFirst({
@@ -201,13 +203,7 @@ const cambiarFechaEvento = async (req: Request, res: Response) => {
     const diasReembolso = politica?.diasReembolso || 0;
 
     // Calcular la fecha mínima permitida (hoy + diasReembolso)
-    // Considerando la zona horaria UTC-3 (Argentina)
-    const OFFSET_ARG = -3 * 60 * 60 * 1000; // -3 horas
-    const ahoraArg = new Date(Date.now() + OFFSET_ARG);
-    ahoraArg.setUTCHours(0, 0, 0, 0);
-
-    const fechaMinima = new Date(ahoraArg.getTime() - OFFSET_ARG);
-    fechaMinima.setUTCDate(fechaMinima.getUTCDate() + diasReembolso);
+    const fechaMinima = dayjs().tz(TIMEZONE).startOf('day').add(diasReembolso, 'day').toDate();
 
     const eventoPrevio = await prisma.evento.findUnique({
       where: { idEvento: id }
@@ -428,9 +424,8 @@ const getEstadisticas = async (req: Request, res: Response) => {
             }
 
             if (ticket.cliente && ticket.cliente.fechaNacimiento) {
-              const ageDifMs = Date.now() - new Date(ticket.cliente.fechaNacimiento).getTime();
-              const ageDate = new Date(ageDifMs);
-              sumaEdades += Math.abs(ageDate.getUTCFullYear() - 1970);
+              const edad = dayjs().diff(dayjs(ticket.cliente.fechaNacimiento), 'year');
+              sumaEdades += edad;
               clientesContados++;
             }
           }
