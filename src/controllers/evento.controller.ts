@@ -110,7 +110,7 @@ const obtenerEventos = async (req: Request, res: Response) => {
               select: {
                 tickets: {
                   where: {
-                    estado: { notIn: ['reembolsado', 'expirado', 'pendiente'] }
+                    estado: { notIn: ['reembolsado', 'expirado'] }
                   }
                 }
               }
@@ -145,7 +145,7 @@ const obtenerEventosPorId = async (req: Request, res: Response) => {
               select: {
                 tickets: {
                   where: {
-                    estado: { notIn: ['reembolsado', 'expirado', 'pendiente'] }
+                    estado: { notIn: ['reembolsado', 'expirado'] }
                   }
                 }
               }
