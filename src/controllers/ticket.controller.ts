@@ -304,7 +304,8 @@ const procesarPago = async (req: Request, res: Response): Promise<void> => {
           precio: Number(ticketPagado.tipoTicket?.precio || 0),
           nroTicket: ticketPagado.nroTicket,
           qrData: ticketPagado.tokenQr,
-          rangoHorario: `${timeInicio} a ${timeFin}`
+          rangoHorario: `${timeInicio} a ${timeFin}`,
+          ubicacion: ticketPagado.tipoTicket?.evento?.ubicacion || "No especificada"
         });
       }
 
@@ -409,7 +410,8 @@ const recibirWebhook = async (req: Request, res: Response): Promise<void> => {
               precio: Number(ticket.tipoTicket?.precio || 0),
               nroTicket: ticket.nroTicket,
               qrData: ticket.tokenQr,
-              rangoHorario: `${timeInicio} a ${timeFin}`
+              rangoHorario: `${timeInicio} a ${timeFin}`,
+              ubicacion: ticket.tipoTicket?.evento?.ubicacion || "No especificada"
             });
           }
         }
@@ -502,7 +504,8 @@ const sincronizarPago = async (req: Request, res: Response): Promise<void> => {
               precio: Number(ticket.tipoTicket?.precio || 0),
               nroTicket: ticket.nroTicket,
               qrData: ticket.tokenQr,
-              rangoHorario: `${timeInicio} a ${timeFin}`
+              rangoHorario: `${timeInicio} a ${timeFin}`,
+              ubicacion: ticket.tipoTicket?.evento?.ubicacion || "No especificada"
             });
           }
         } else {

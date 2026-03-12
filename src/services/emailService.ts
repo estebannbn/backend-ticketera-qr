@@ -11,6 +11,7 @@ export const sendTicketEmail = async (
         nroTicket: number;
         qrData: string; // The token to generate QR
         rangoHorario: string;
+        ubicacion: string;
     }
 ) => {
     try {
@@ -44,6 +45,7 @@ export const sendTicketEmail = async (
           <div style="background-color: #f9fafb; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
             <p style="margin: 5px 0;"><strong>Evento:</strong> ${ticketInfo.evento}</p>
             <p style="margin: 5px 0;"><strong>Fecha y Hora:</strong> ${ticketInfo.fecha} hs</p>
+            <p style="margin: 5px 0;"><strong>Ubicación:</strong> ${ticketInfo.ubicacion}</p>
             <p style="margin: 5px 0;"><strong>Rango de Acceso (QR):</strong> ${ticketInfo.rangoHorario}</p>
             <p style="margin: 5px 0;"><strong>Precio:</strong> $${ticketInfo.precio}</p>
             <p style="margin: 5px 0;"><strong>Nro. Ticket:</strong> #${ticketInfo.nroTicket}</p>
