@@ -205,7 +205,7 @@ const actualizarOrganizacion = async (req: Request, res: Response) => {
         let message = "Ya existe un registro con estos datos únicos";
 
         if (target.includes("mail")) {
-          message = "El correo electrónico ya está en uso por otra organización";
+          message = "El correo electrónico ya está en uso por otro usuario";
         } else if (target.includes("cuit")) {
           message = "El CUIT ya está en uso por otra organización";
         }
