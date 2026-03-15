@@ -77,7 +77,7 @@ const crearTicket = async (req: Request, res: Response): Promise<void> => {
 
     if (ticketsVendidosPorTipo >= tipoTicket.cantMaxPorTipo) {
       res.status(400).json({
-        message: "Lo sentimos, no hay cupos disponibles para este tipo de ticket (Capacidad agotada)",
+        message: "No hay cupos disponibles",
         error: true,
       });
       return;
@@ -109,11 +109,13 @@ const crearTicket = async (req: Request, res: Response): Promise<void> => {
 
     if (!cliente) {
       res.status(404).json({
-        message: "El cliente especificado no existe",
+        message: "El cliente especificado no existe o el DNI no fue verificado",
         error: true,
       });
       return;
     }
+
+    console.log(`Validando DNI del cliente ${cliente.nroDoc} para la compra de ticket.`);
 
     const ticketPendienteExistente = await prisma.ticket.findFirst({
       where: {
@@ -305,7 +307,8 @@ const procesarPago = async (req: Request, res: Response): Promise<void> => {
           nroTicket: ticketPagado.nroTicket,
           qrData: ticketPagado.tokenQr,
           rangoHorario: `${timeInicio} a ${timeFin}`,
-          ubicacion: ticketPagado.tipoTicket?.evento?.ubicacion || "No especificada"
+          ubicacion: ticketPagado.tipoTicket?.evento?.ubicacion || "No especificada",
+          tipoTicket: ticketPagado.tipoTicket?.tipo || "General"
         });
       }
 
@@ -411,7 +414,8 @@ const recibirWebhook = async (req: Request, res: Response): Promise<void> => {
               nroTicket: ticket.nroTicket,
               qrData: ticket.tokenQr,
               rangoHorario: `${timeInicio} a ${timeFin}`,
-              ubicacion: ticket.tipoTicket?.evento?.ubicacion || "No especificada"
+              ubicacion: ticket.tipoTicket?.evento?.ubicacion || "No especificada",
+              tipoTicket: ticket.tipoTicket?.tipo || "General"
             });
           }
         }
@@ -505,7 +509,8 @@ const sincronizarPago = async (req: Request, res: Response): Promise<void> => {
               nroTicket: ticket.nroTicket,
               qrData: ticket.tokenQr,
               rangoHorario: `${timeInicio} a ${timeFin}`,
-              ubicacion: ticket.tipoTicket?.evento?.ubicacion || "No especificada"
+              ubicacion: ticket.tipoTicket?.evento?.ubicacion || "No especificada",
+              tipoTicket: ticket.tipoTicket?.tipo || "General"
             });
           }
         } else {

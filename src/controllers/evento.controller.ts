@@ -50,10 +50,23 @@ const crearEvento = async (req: Request, res: Response) => {
     const fechaMinima = dayjs().tz(TIMEZONE).startOf('day').add(diasReembolso, 'day').toDate();
 
     if (nuevaFecha < fechaMinima) {
-      return res.status(400).json({
+      res.status(400).json({
         message: `La fecha del evento debe ser al menos ${diasReembolso} días posterior al día de hoy, según la política de reembolsos vigente.`,
         error: true
       });
+      return;
+    }
+
+    // CU04 Paso 5.b: Validar suma de capacidades de tipos de tickets
+    if (tipoTickets && tipoTickets.length > 0) {
+      const sumCapacidades = tipoTickets.reduce((acc: number, tt: any) => acc + Number(tt.cantMaxPorTipo || 0), 0);
+      if (sumCapacidades > capacidadMax) {
+        res.status(400).json({
+          message: "La suma de las capacidades de los tipos de ticket no puede ser mayor a la capacidad máxima del evento.",
+          error: true
+        });
+        return;
+      }
     }
 
     const evento = await prisma.evento.create({
@@ -386,9 +399,17 @@ const cancelarEvento = async (req: Request, res: Response) => {
 const getEstadisticas = async (req: Request, res: Response) => {
   try {
     const idOrganizacionStr = req.query.idOrganizacion as string;
+    const { fechaInicio, fechaFin } = req.query;
     const idOrganizacion = idOrganizacionStr ? Number(idOrganizacionStr) : undefined;
 
-    const whereClause = idOrganizacion ? { idOrganizacion } : {};
+    const whereClause: any = idOrganizacion ? { idOrganizacion } : {};
+    
+    // Filtro por rango de fechas (opcional)
+    if (fechaInicio || fechaFin) {
+      whereClause.fechaHoraEvento = {};
+      if (fechaInicio) whereClause.fechaHoraEvento.gte = dayjs(fechaInicio as string).startOf('day').toDate();
+      if (fechaFin) whereClause.fechaHoraEvento.lte = dayjs(fechaFin as string).endOf('day').toDate();
+    }
 
     const totalEventos = await prisma.evento.count({ where: whereClause });
 
@@ -425,7 +446,6 @@ const getEstadisticas = async (req: Request, res: Response) => {
       evento.tipoTickets.forEach(tt => {
         const precio = Number(tt.precio);
         tt.tickets.forEach(ticket => {
-          // Include 'expirado' tickets because they count towards total sales and revenue
           if (["pagado", "consumido", "pendiente_transferencia", "reembolsado", "expirado"].includes(ticket.estado)) {
             vendidos++;
             if (ticket.estado === "reembolsado") {
@@ -446,13 +466,13 @@ const getEstadisticas = async (req: Request, res: Response) => {
       return {
         idCategoria: evento.idCategoria,
         idEvento: evento.idEvento,
-        nombre: evento.nombre,
+        nombre: evento.nombre, // CU feedback mentions 'titulo' is not in table, we use 'nombre'
         foto: evento.foto,
         fecha: evento.fechaHoraEvento,
         vendidos,
         reembolsados,
         porcReembolsados: vendidos > 0 ? (reembolsados / vendidos) * 100 : 0,
-        recaudacion,
+        recaudacion, // Required by CU13
         edadPromedio: clientesContados > 0 ? Math.round(sumaEdades / clientesContados) : 0
       };
     });
@@ -468,6 +488,7 @@ const getEstadisticas = async (req: Request, res: Response) => {
       error: false
     });
   } catch (error) {
+    console.error("Error en getEstadisticas:", error);
     res.status(500).json({ message: "Error al obtener estadísticas", error: true });
   }
 };
