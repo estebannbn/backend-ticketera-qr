@@ -6,7 +6,7 @@ import { crearUsuarioSchema, forgotPasswordSchema, loginSchema, resetPasswordSch
 
 const router = express.Router();
 
-router.post('/', validate(crearUsuarioSchema), usuarioController.crearUsuario);
+router.post('/', checkSession, validate(crearUsuarioSchema), usuarioController.crearUsuario);
 router.get('/', usuarioController.obtenerUsuario);
 router.post('/login', validate(loginSchema), usuarioController.loginUsuario);
 router.post('/forgot-password', validate(forgotPasswordSchema), usuarioController.forgotPassword);

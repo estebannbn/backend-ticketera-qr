@@ -1,7 +1,11 @@
 import jwt from "jsonwebtoken";
 const { sign, verify } = jwt;
 
-const JWT_SECRET = process.env.JWT_SECRET || "secreto.01";
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+    throw new Error("JWT_SECRET no está definido en las variables de entorno");
+}
 
 const generateToken = (id: string, rol: string) => {
     const jwt = sign({ id, rol }, JWT_SECRET, {

@@ -17,6 +17,13 @@ const TIMEZONE = "America/Argentina/Buenos_Aires";
 // Solo crea ADMINS
 const crearUsuario = async (req: Request, res: Response): Promise<void> => {
   try {
+    // @ts-ignore
+    const userPayload = req.user;
+    if (!userPayload || userPayload.rol !== Rol.ADMIN) {
+      res.status(403).json({ message: "No tienes permiso para crear usuarios administradores", error: true });
+      return;
+    }
+
     const { mail, contraseña } = req.body;
     const hashedPassword = await encrypt(contraseña);
     const usuario = await prisma.usuario.create({
