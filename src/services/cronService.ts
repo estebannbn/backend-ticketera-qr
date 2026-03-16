@@ -13,6 +13,7 @@ const TIMEZONE = "America/Argentina/Buenos_Aires";
 export const startCronJobs = () => {
   // Ejecutar cada 5 minutos para revisar eventos que ya pasaron
   cron.schedule("*/5 * * * *", async () => {
+    console.log("CronJob: Iniciando revisión de eventos finalizados...");
     try {
       // Calculamos el límite en Argentina timezone (UTC-3)
       const ahoraArg = dayjs().tz(TIMEZONE);
@@ -30,9 +31,9 @@ export const startCronJobs = () => {
         },
       });
 
-      if (eventosFinalizados.length === 0) return;
-
       console.log(`CronJob: Se encontraron ${eventosFinalizados.length} eventos para finalizar.`);
+
+      if (eventosFinalizados.length === 0) return;
 
       for (const evento of eventosFinalizados) {
         // 1. Marcar el evento como FINALIZADO
@@ -64,12 +65,13 @@ export const startCronJobs = () => {
         );
       }
     } catch (error) {
-      console.error("CronJob Error al finalizar eventos:", error);
+      console.error("CronJob: Error al finalizar eventos:", error);
     }
   });
 
   // Ejecutar cada minuto para limpiar tickets pendientes vencidos (5 min)
   cron.schedule("* * * * *", async () => {
+    console.log("CronJob: Revisando tickets pendientes vencidos...");
     try {
       const cincoMinutosAtras = dayjs().subtract(5, 'minute').toDate();
 
@@ -85,11 +87,9 @@ export const startCronJobs = () => {
         }
       });
 
-      if (resultado.count > 0) {
-        console.log(`CronJob: Se limpiaron ${resultado.count} tickets pendientes vencidos.`);
-      }
+      console.log(`CronJob: Se limpiaron ${resultado.count} tickets pendientes vencidos.`);
     } catch (error) {
-      console.error("CronJob Error al limpiar tickets pendientes:", error);
+      console.error("CronJob: Error al limpiar tickets pendientes:", error);
     }
   });
 
