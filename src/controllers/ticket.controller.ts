@@ -740,7 +740,7 @@ const consumirTicket = async (req: Request, res: Response): Promise<void> => {
 
     if (!ticket) {
       res.status(404).json({
-        message: "Ticket no encontrado",
+        message: "El código QR escaneado no pertenece a nuestro sistema o es inválido",
         error: true,
       });
       return;
@@ -1230,7 +1230,7 @@ const obtenerTicketPorToken = async (req: Request, res: Response): Promise<void>
 
     if (!ticket) {
       res.status(404).json({
-        message: "Ticket no encontrado",
+        message: "El código QR escaneado no pertenece a nuestro sistema o es inválido",
         error: true,
       });
       return;
