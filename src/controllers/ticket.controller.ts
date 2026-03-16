@@ -688,6 +688,7 @@ const obtenerTicketsPorIdCliente = async (req: Request, res: Response): Promise<
                 nombre: true,
                 fechaHoraEvento: true,
                 idOrganizacion: true,
+                foto: true,
               },
             },
           },
