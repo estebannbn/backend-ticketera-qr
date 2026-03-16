@@ -741,7 +741,7 @@ const consumirTicket = async (req: Request, res: Response): Promise<void> => {
 
     if (!ticket) {
       res.status(404).json({
-        message: "El código QR escaneado no pertenece a nuestro sistema o es inválido",
+        message: "El código QR escaneado no pertenece a nuestro sistema. Por favor, verifique que se trate de un ticket válido generado por esta plataforma de Ticketera QR.",
         error: true,
       });
       return;
@@ -1231,7 +1231,7 @@ const obtenerTicketPorToken = async (req: Request, res: Response): Promise<void>
 
     if (!ticket) {
       res.status(404).json({
-        message: "El código QR escaneado no pertenece a nuestro sistema o es inválido",
+        message: "El código QR escaneado no pertenece a nuestro sistema. Por favor, verifique que se trate de un ticket válido generado por esta plataforma de Ticketera QR.",
         error: true,
       });
       return;
