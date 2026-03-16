@@ -172,7 +172,7 @@ const crearTicket = async (req: Request, res: Response): Promise<void> => {
           pending: `${(process.env.FRONTEND_URL || process.env.FRONTEND_LOCAL_URL || 'http://localhost:3000').replace(/['"]/g, '')}/pago-pendiente`,
         },
         auto_return: "approved",
-        notification_url: `${(process.env.BACKEND_URL || 'http://localhost:5000').replace(/['"]/g, '')}/api/tickets/webhook`,
+        notification_url: `${(process.env.BACKEND_URL || 'http://localhost:5000').replace(/['']/g, '')}/api/tickets/webhook`,
         external_reference: ticket.nroTicket.toString()
       }
     };

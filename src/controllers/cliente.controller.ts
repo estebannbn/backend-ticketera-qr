@@ -186,7 +186,7 @@ const actualizarCliente = async (req: Request, res: Response) => {
     });
 
     if (!clienteExistente) {
-      res.status(404).json({ message: "Cliente no encontrado", error: true });
+      res.status(404).json({ message: "No se encontró ningún cliente con los criterios especificados.", error: true });
       return;
     }
 
@@ -275,7 +275,7 @@ const obtenerClientePorIdUsuario = async (
 
     if (!cliente) {
       res.status(404).json({
-        message: "Cliente no encontrado para este usuario",
+        message: "No existe un perfil de cliente asociado a esta cuenta de usuario.",
         error: true,
       });
       return;
@@ -289,7 +289,7 @@ const obtenerClientePorIdUsuario = async (
   } catch (error) {
     console.error("Error en obtenerClientePorIdUsuario:", error);
     res.status(500).json({
-      message: "Error al obtener el cliente por ID de usuario",
+      message: "Error al obtener el cliente",
       error: true,
       details: (error as Error).message,
     });
