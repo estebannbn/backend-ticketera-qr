@@ -133,7 +133,7 @@ const getUsuarioLogueado = async (req: Request, res: Response): Promise<void> =>
     const userPayload = req.user;
 
     if (!userPayload || !userPayload.id) {
-      res.status(401).send("USER_PAYLOAD_NOT_FOUND");
+      res.status(200).json(null);
       return;
     }
 
