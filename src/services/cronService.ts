@@ -91,6 +91,52 @@ export const startCronJobs = () => {
     } catch (error) {
       console.error("CronJob: Error al limpiar tickets pendientes:", error);
     }
+
+    // NUEVO: Finalizar eventos sin stock con todos sus tickets consumidos
+    try {
+      console.log("CronJob: Revisando eventos sin stock para finalizar...");
+      const eventosActivos = await prisma.evento.findMany({
+        where: { estado: EstadoEvento.ACTIVO },
+        include: {
+          tipoTickets: {
+            include: {
+              _count: {
+                select: {
+                  tickets: {
+                    where: { estado: { notIn: [EstadoTicket.reembolsado, EstadoTicket.expirado] } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      });
+
+      for (const evento of eventosActivos) {
+        // Sumar tickets de todos los tipos del evento
+        const totalTicketsValidos = evento.tipoTickets.reduce((acc, tt) => acc + tt._count.tickets, 0);
+
+        if (totalTicketsValidos > 0 && totalTicketsValidos === evento.capacidadMax) {
+          // Chequear si todos esos tickets están consumidos
+          const countConsumidos = await prisma.ticket.count({
+            where: {
+              tipoTicket: { idEvento: evento.idEvento },
+              estado: EstadoTicket.consumido
+            }
+          });
+
+          if (countConsumidos === totalTicketsValidos) {
+            await prisma.evento.update({
+              where: { idEvento: evento.idEvento },
+              data: { estado: EstadoEvento.FINALIZADO }
+            });
+            console.log(`CronJob: Evento ID ${evento.idEvento} finalized because it is full and all tickets are consumed.`);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("CronJob: Error en verificación de eventos sin stock:", error);
+    }
   });
 
   console.log("Servicio de Cron Jobs (Tareas Programadas) iniciado.");
