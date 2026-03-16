@@ -12,7 +12,7 @@ export const crearPolitica = async (req: Request, res: Response): Promise<void> 
     });
 
     res.status(200).json({
-      message: "Politica creado con éxito",
+      message: "Politica creada con éxito",
       data: politica,
       error: false,
     });
@@ -42,14 +42,14 @@ export const obtenerPoliticas = async (req: Request, res: Response): Promise<voi
     }));
 
     res.status(200).json({
-      message: "Politicas obtenidos con éxito",
+      message: "Politicas obtenidas con éxito",
       data: politicas,
       error: false,
     });
   } catch (error) {
     console.error("Error en obtenerPoliticas:", error);
     res.status(500).json({
-      message: "Error al obtener las Politicas",
+      message: "Error al obtener las politicas",
       error: true,
       details: (error as Error).message,
     });
@@ -67,7 +67,7 @@ export const obtenerPoliticaActual = async (req: Request, res: Response): Promis
 
     if (!politica) {
       res.status(404).json({
-        message: "No se encontró ninguna política",
+        message: "Actualmente no existen políticas de reembolso configuradas.",
         error: true
       });
       return;
@@ -80,14 +80,14 @@ export const obtenerPoliticaActual = async (req: Request, res: Response): Promis
     };
 
     res.status(200).json({
-      message: "Politica actual obtenida con éxito",
+      message: "Politica obtenida con éxito",
       data: politicaConEstado,
       error: false,
     });
   } catch (error) {
     console.error("Error en obtenerPoliticaActual:", error);
     res.status(500).json({
-      message: "Error al obtener la Politica actual",
+      message: "Error al obtener la politica",
       error: true,
       details: (error as Error).message,
     });

@@ -165,7 +165,7 @@ const actualizarOrganizacion = async (req: Request, res: Response) => {
     });
 
     if (!organizacionExistente) {
-      res.status(404).json({ message: "Organización no encontrada", error: true });
+      res.status(404).json({ message: "La organización solicitada no existe.", error: true });
       return;
     }
 
@@ -245,7 +245,7 @@ const obtenerOrganizacionPorIdUsuario = async (
 
     if (!organizacion) {
       res.status(404).json({
-        message: "Organización no encontrada para este usuario",
+        message: "No se localizó ninguna organización vinculada a este usuario.",
         error: true,
       });
       return;
@@ -259,7 +259,7 @@ const obtenerOrganizacionPorIdUsuario = async (
   } catch (error) {
     console.error("Error en obtenerOrganizacionPorIdUsuario:", error);
     res.status(500).json({
-      message: "Error al obtener la organización por ID de usuario",
+      message: "Error al obtener la organización",
       error: true,
       details: (error as Error).message,
     });

@@ -34,7 +34,7 @@ const crearUsuario = async (req: Request, res: Response): Promise<void> => {
       },
     });
     res.status(201).json({
-      message: "Usuario creado con éxito",
+      message: "Usuario creado exitosamente",
       data: {
         idUsuario: usuario.idUsuario,
         mail: usuario.mail,
@@ -165,7 +165,7 @@ const forgotPassword = async (req: Request, res: Response): Promise<void> => {
     const usuario = await prisma.usuario.findUnique({ where: { mail } });
     if (!usuario) {
       // Por seguridad, no revelamos si el usuario existe o no
-      res.status(200).json({ message: "Si el correo está registrado, recibirás un enlace", error: false });
+    res.status(200).json({ message: "Si el correo electrónico se encuentra en nuestros registros, recibirá un enlace de recuperación a la brevedad.", error: false });
       return;
     }
 
@@ -186,7 +186,7 @@ const forgotPassword = async (req: Request, res: Response): Promise<void> => {
     res.status(200).json({ message: "Si el correo está registrado, recibirás un enlace", error: false });
   } catch (error) {
     console.error("Error en forgotPassword:", error);
-    res.status(500).json({ message: "Error al procesar solicitud", error: true });
+    res.status(500).json({ message: "Error al enviar el mail", error: true });
   }
 };
 
@@ -216,10 +216,10 @@ const resetPassword = async (req: Request, res: Response): Promise<void> => {
       }
     });
 
-    res.status(200).json({ message: "Contraseña actualizada con éxito", error: false });
+    res.status(200).json({ message: "Contraseña reseteada con éxito", error: false });
   } catch (error) {
     console.error("Error en resetPassword:", error);
-    res.status(500).json({ message: "Error al restablecer contraseña", error: true });
+    res.status(500).json({ message: "Error al resetear la contraseña", error: true });
   }
 };
 
@@ -238,7 +238,7 @@ const actualizarUsuario = async (req: Request, res: Response): Promise<void> => 
     });
 
     res.status(200).json({
-      message: "Usuario actualizado con éxito",
+      message: "Usuario actualizado",
       data: {
         idUsuario: usuario.idUsuario,
         mail: usuario.mail,
@@ -249,7 +249,7 @@ const actualizarUsuario = async (req: Request, res: Response): Promise<void> => 
   } catch (error) {
     console.error("Error en actualizarUsuario:", error);
     res.status(500).json({
-      message: "Error al actualizar el usuario",
+      message: "Error al actualizar usuario",
       error: true,
       details: (error as Error).message,
     });

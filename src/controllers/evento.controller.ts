@@ -100,7 +100,7 @@ const crearEvento = async (req: Request, res: Response) => {
       error: false
     });
   } catch (error) {
-    res.status(500).json({ message: "Error al crear evento", error: true });
+    res.status(500).json({ message: "Error al crear el evento", error: true });
   }
 };
 
@@ -139,7 +139,7 @@ const obtenerEventos = async (req: Request, res: Response) => {
       error: false
     });
   } catch (error) {
-    res.status(500).json({ message: "Error al obtener eventos", error: true });
+    res.status(500).json({ message: "Error al obtener los eventos", error: true });
   }
 };
 
@@ -178,7 +178,7 @@ const obtenerEventosPorId = async (req: Request, res: Response) => {
       error: false
     });
   } catch (error) {
-    res.status(500).json({ message: "Error al obtener evento", error: true });
+    res.status(500).json({ message: "Error al obtener el evento", error: true });
   }
 };
 
@@ -300,12 +300,12 @@ const cambiarFechaEvento = async (req: Request, res: Response) => {
     }
 
     res.status(200).json({
-      message: "Fecha del evento cambiada y clientes notificados",
+      message: "Fecha cambiada con éxito",
       data: evento,
       error: false
     });
   } catch (error) {
-    res.status(500).json({ message: "Error al cambiar fecha del evento", error: true });
+    res.status(500).json({ message: "Error al cambiar fecha", error: true });
   }
 };
 
@@ -478,7 +478,7 @@ const getEstadisticas = async (req: Request, res: Response) => {
     });
 
     res.status(200).json({
-      message: "Estadísticas obtenidas con éxito",
+      message: "Estadisticas obtenidas con éxito",
       data: {
         totalEventos,
         eventosActivos,

@@ -14,7 +14,7 @@ export const crearCategoria = async (req: Request, res: Response): Promise<void>
 
     if (categoriaExistente) {
       res.status(400).json({
-        message: "Error de validación",
+        message: "Ya existe una categoría con ese nombre",
         error: true,
         details: [
           {
@@ -33,7 +33,7 @@ export const crearCategoria = async (req: Request, res: Response): Promise<void>
     });
 
     res.status(200).json({
-      message: "Categoria creado con éxito",
+      message: "Categoría creada con éxito",
       data: categoria,
       error: false,
     });
@@ -64,14 +64,14 @@ export const obtenerCategorias = async (req: Request, res: Response): Promise<vo
     });
 
     res.status(200).json({
-      message: "categorias obtenidos con éxito",
+      message: "Categorias obtenidas con éxito",
       data: categorias,
       error: false,
     });
   } catch (error) {
     console.error("Error en obtenerCategorias:", error);
     res.status(500).json({
-      message: "Error al obtener las Categorias",
+      message: "Error al obtener categorias",
       error: true,
       details: (error as Error).message,
     });
@@ -87,21 +87,21 @@ export const obtenerCategoriaPorId = async (req: Request, res: Response): Promis
 
     if (!categoria) {
       res.status(404).json({
-        message: "Categoría no encontrada",
+        message: "La categoría solicitada no existe.",
         error: true,
       });
       return;
     }
 
     res.status(200).json({
-      message: "Categoría obtenida con éxito",
+      message: "Detalles de la categoría recuperados exitosamente",
       data: categoria,
       error: false,
     });
   } catch (error) {
     console.error("Error en obtenerCategoriaPorId", error);
     res.status(500).json({
-      message: "Error al obtener la categoría",
+      message: "Error al obtener la categoria",
       error: true,
       details: (error as Error).message,
     });
@@ -121,7 +121,7 @@ export const eliminarCategoria = async (
     });
     if (!categoriaEliminada) {
       res.status(404).json({
-        message: "Categoria no encontrada",
+        message: "La categoría solicitada no existe,",
         error: true,
       });
       return;

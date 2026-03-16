@@ -9,7 +9,7 @@ export const uploadFile = async (req: Request, res: Response): Promise<void> => 
   try {
     const file = req.file;
     if (!file) {
-      res.status(400).json({ error: true, message: "No file provided" });
+      res.status(400).json({ error: true, message: "No se ha proporcionado ningún archivo para subir." });
       return;
     }
 
@@ -38,7 +38,7 @@ export const uploadFile = async (req: Request, res: Response): Promise<void> => 
 
     if (uploadError) {
       console.error("Error al subir a Supabase:", uploadError);
-      res.status(500).json({ error: true, message: "Error al subir la imagen a Supabase Storage" });
+      res.status(500).json({ error: true, message: "Error al subir la imagen" });
       return;
     }
 
@@ -49,12 +49,12 @@ export const uploadFile = async (req: Request, res: Response): Promise<void> => 
 
     res.status(200).json({
       error: false,
-      message: "Archivo subido exitosamente a Supabase Storage",
+      message: "Archivo subido exitosamente",
       url: publicUrlData.publicUrl,
     });
 
   } catch (error) {
     console.error("Error en uploadFile:", error);
-    res.status(500).json({ error: true, message: "Error interno del servidor al subir el archivo" });
+    res.status(500).json({ error: true, message: "Error al subir el archivo" });
   }
 };
