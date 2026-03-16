@@ -664,9 +664,10 @@ const obtenerTicketsPorIdCliente = async (req: Request, res: Response): Promise<
           { ofertaTransferenciaIdCliente: idCliente }
         ],
         NOT: {
-          estado: {
-            in: ['expirado']
-          }
+          OR: [
+            { estado: 'expirado' },
+            { tipoTicket: { evento: { estado: 'FINALIZADO' } } }
+          ]
         }
       },
       include: {
