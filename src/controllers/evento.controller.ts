@@ -110,7 +110,19 @@ const obtenerEventos = async (req: Request, res: Response) => {
       ? Number(req.query.idOrganizacion)
       : undefined;
 
-    const whereClause: any = idOrganizacion ? { idOrganizacion } : { estado: "ACTIVO" };
+    const now = dayjs().tz(TIMEZONE);
+    const threeMonthsAgo = now.subtract(3, 'month').toDate();
+    const threeMonthsFromNow = now.add(3, 'month').toDate();
+
+    const whereClause: any = idOrganizacion 
+      ? { 
+          idOrganizacion,
+          fechaHoraEvento: {
+            gte: threeMonthsAgo,
+            lte: threeMonthsFromNow
+          }
+        } 
+      : { estado: "ACTIVO" };
 
     const eventos = await prisma.evento.findMany({
       where: whereClause,
