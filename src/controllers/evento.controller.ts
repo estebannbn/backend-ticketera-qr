@@ -458,14 +458,18 @@ const getEstadisticas = async (req: Request, res: Response) => {
       evento.tipoTickets.forEach(tt => {
         const precio = Number(tt.precio);
         tt.tickets.forEach(ticket => {
-          if (["pagado", "consumido", "pendiente_transferencia", "reembolsado", "expirado"].includes(ticket.estado)) {
+          // Solo contamos como vendidos los tickets que están en uso o activos (no reembolsados)
+          // "expirado" con paymentId indica que pagó pero no asistió (la plata queda)
+          if (["pagado", "consumido", "pendiente_transferencia"].includes(ticket.estado) || (ticket.estado === "expirado" && ticket.paymentId)) {
             vendidos++;
-            if (ticket.estado === "reembolsado") {
-              reembolsados++;
-            } else {
-              recaudacion += precio;
-            }
+            recaudacion += precio;
+          } else if (ticket.estado === "reembolsado") {
+            reembolsados++;
+          }
 
+          // Cálculo de edad promedio para todos los que compraron (incluyendo reembolsados si se desea, 
+          // pero usualmente se prefiere de los que asistieron o tienen el ticket activo)
+          if (["pagado", "consumido", "pendiente_transferencia", "reembolsado"].includes(ticket.estado)) {
             if (ticket.cliente && ticket.cliente.fechaNacimiento) {
               const edad = dayjs().diff(dayjs(ticket.cliente.fechaNacimiento), 'year');
               sumaEdades += edad;
@@ -512,7 +516,7 @@ const getVentasPorHora = async (req: Request, res: Response) => {
     const timezoneStr = 'America/Argentina/Buenos_Aires';
     const localTimestamp = `t."fechaCreacion" AT TIME ZONE 'UTC' AT TIME ZONE '${timezoneStr}'`;
 
-    let conditions: string[] = ["t.estado IN ('pagado', 'consumido', 'pendiente_transferencia', 'expirado')"];
+    let conditions: string[] = ["t.estado IN ('pagado', 'consumido', 'pendiente_transferencia') OR (t.estado = 'expirado' AND t.\"paymentId\" IS NOT NULL)"];
 
     if (idOrganizacion) conditions.push(`e."idOrganizacion" = ${Number(idOrganizacion)}`);
     if (idCategoria) conditions.push(`e."idCategoria" = ${Number(idCategoria)}`);
