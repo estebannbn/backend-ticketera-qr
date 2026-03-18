@@ -18,7 +18,7 @@ export const crearEventoSchema = z.object({
         foto: z.string().url("La foto debe ser una URL válida"),
         idCategoria: z.number().int().positive("ID de categoría inválido"),
         idOrganizacion: z.number().int().positive("ID de organización inválido"),
-        tipoTickets: z.array(tipoTicketSchema).min(1, "Debe incluir al menos un tipo de ticket"),
+        tipoTickets: z.array(tipoTicketSchema).min(1, "error de validación"),
     }).refine(data => {
         const totalTickets = data.tipoTickets.reduce((acc, ticket) => acc + ticket.cantMaxPorTipo, 0);
         return totalTickets <= data.capacidadMax;
