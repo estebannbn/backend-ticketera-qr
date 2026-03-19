@@ -116,16 +116,32 @@ export const eliminarCategoria = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    const categoriaEliminada = await prisma.categoria.delete({
-      where: { idCategoria: parseInt(id) },
+
+    // Verificar si hay eventos asociados a esta categoría
+    const eventosAsociados = await prisma.evento.count({
+      where: { idCategoria: parseInt(id) }
     });
-    if (!categoriaEliminada) {
-      res.status(404).json({
-        message: "La categoría solicitada no existe,",
+
+    if (eventosAsociados > 0) {
+      res.status(400).json({
+        message: "No se puede eliminar la categoría porque tiene eventos asociados",
         error: true,
       });
       return;
     }
+
+    const categoriaEliminada = await prisma.categoria.delete({
+      where: { idCategoria: parseInt(id) },
+    });
+
+    if (!categoriaEliminada) {
+      res.status(404).json({
+        message: "La categoría solicitada no existe",
+        error: true,
+      });
+      return;
+    }
+
     res.status(200).json({
       message: "Categoria eliminada con éxito",
       error: false,
