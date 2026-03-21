@@ -516,7 +516,7 @@ const getVentasPorHora = async (req: Request, res: Response) => {
     const timezoneStr = 'America/Argentina/Buenos_Aires';
     const localTimestamp = `t."fechaCreacion" AT TIME ZONE 'UTC' AT TIME ZONE '${timezoneStr}'`;
 
-    let conditions: string[] = ["t.estado IN ('pagado', 'consumido', 'pendiente_transferencia') OR (t.estado = 'expirado' AND t.\"paymentId\" IS NOT NULL)"];
+    let conditions: string[] = ["(t.estado IN ('pagado', 'consumido', 'pendiente_transferencia') OR (t.estado = 'expirado' AND t.\"paymentId\" IS NOT NULL))"];
 
     if (idOrganizacion) conditions.push(`e."idOrganizacion" = ${Number(idOrganizacion)}`);
     if (idCategoria) conditions.push(`e."idCategoria" = ${Number(idCategoria)}`);
@@ -530,15 +530,15 @@ const getVentasPorHora = async (req: Request, res: Response) => {
     // Query para obtener cantidad y recaudación agrupados por hora (normalizado a Argentina)
     const query = `
       SELECT 
-        to_char(date_trunc('hour', ${localTimestamp}), 'HH24:00') as hora, 
+        to_char(${localTimestamp}, 'HH24:00') as hora, 
         count(*)::integer as cantidad, 
         sum(tt.precio)::float as recaudacion
       FROM "Ticket" t
       JOIN "TipoTicket" tt ON t."idTipoTicket" = tt."idTipoTicket"
       JOIN "Evento" e ON tt."idEvento" = e."idEvento"
       ${whereClause}
-      GROUP BY date_trunc('hour', ${localTimestamp})
-      ORDER BY date_trunc('hour', ${localTimestamp})
+      GROUP BY to_char(${localTimestamp}, 'HH24:00')
+      ORDER BY hora
     `;
 
     const ventas = await prisma.$queryRawUnsafe<any[]>(query);
