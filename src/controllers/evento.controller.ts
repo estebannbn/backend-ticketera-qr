@@ -529,16 +529,20 @@ const getVentasPorHora = async (req: Request, res: Response) => {
 
     // Query para obtener cantidad y recaudación agrupados por hora (normalizado a Argentina)
     const query = `
-      SELECT 
-        to_char(${localTimestamp}, 'HH24:00') as hora, 
-        count(*)::integer as cantidad, 
-        sum(tt.precio)::float as recaudacion
-      FROM "Ticket" t
-      JOIN "TipoTicket" tt ON t."idTipoTicket" = tt."idTipoTicket"
-      JOIN "Evento" e ON tt."idEvento" = e."idEvento"
-      ${whereClause}
-      GROUP BY to_char(${localTimestamp}, 'HH24:00')
-      ORDER BY hora
+      SELECT sub.hora, SUM(sub.cantidad)::integer as cantidad, SUM(sub.recaudacion)::float as recaudacion
+      FROM (
+        SELECT 
+          to_char(${localTimestamp}, 'HH24:00') as hora, 
+          count(*)::integer as cantidad, 
+          sum(tt.precio)::float as recaudacion
+        FROM "Ticket" t
+        JOIN "TipoTicket" tt ON t."idTipoTicket" = tt."idTipoTicket"
+        JOIN "Evento" e ON tt."idEvento" = e."idEvento"
+        ${whereClause}
+        GROUP BY 1
+      ) sub
+      GROUP BY 1
+      ORDER BY 1
     `;
 
     const ventas = await prisma.$queryRawUnsafe<any[]>(query);
