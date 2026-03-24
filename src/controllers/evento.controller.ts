@@ -117,12 +117,13 @@ const obtenerEventos = async (req: Request, res: Response) => {
     const whereClause: any = idOrganizacion 
       ? { 
           idOrganizacion,
+          estado: { not: "ELIMINADO" }, // Excluir eliminados
           fechaHoraEvento: {
             gte: threeMonthsAgo,
             lte: threeMonthsFromNow
           }
         } 
-      : { estado: "ACTIVO" };
+      : { estado: "ACTIVO" }; // Los activos por definición no son ELIMINADOS
 
     const eventos = await prisma.evento.findMany({
       where: whereClause,
@@ -180,7 +181,7 @@ const obtenerEventosPorId = async (req: Request, res: Response) => {
       }
     });
 
-    if (!evento) {
+    if (!evento || evento.estado === "ELIMINADO") {
       return res.status(404).json({ message: "Evento no encontrado", error: true });
     }
 
@@ -198,7 +199,6 @@ const eliminarEvento = async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
 
-    // Verificar si el evento existe antes de intentar eliminar
     const eventoExistente = await prisma.evento.findUnique({
       where: { idEvento: id }
     });
@@ -207,22 +207,22 @@ const eliminarEvento = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "El evento no existe o ya fue eliminado.", error: true });
     }
 
-    // Primero eliminamos todos los tickets asociados a través de los TipoTicket
-    await prisma.ticket.deleteMany({
-      where: {
-        tipoTicket: {
-          idEvento: id
-        }
-      }
-    });
+    // Solo se pueden eliminar eventos CANCELADOS o FINALIZADOS
+    if (eventoExistente.estado !== "CANCELADO" && eventoExistente.estado !== "FINALIZADO") {
+      return res.status(400).json({ 
+        message: "Solo se pueden eliminar eventos que hayan finalizado o hayan sido cancelados previamente.", 
+        error: true 
+      });
+    }
 
-    // Ahora eliminamos el evento
-    await prisma.evento.delete({
-      where: { idEvento: id }
+    // Soft delete: cambiar estado a ELIMINADO en lugar de borrar físicamente
+    await prisma.evento.update({
+      where: { idEvento: id },
+      data: { estado: "ELIMINADO" }
     });
 
     res.status(200).json({
-      message: "Evento eliminado con éxito",
+      message: "Evento eliminado con éxito (Soft Delete aplicado para conservar estadísticas)",
       error: false
     });
   } catch (error: any) {
@@ -230,7 +230,7 @@ const eliminarEvento = async (req: Request, res: Response) => {
     res.status(500).json({ 
       message: "Error al eliminar evento", 
       error: true,
-      details: error.code === 'P2003' ? "No se puede eliminar porque existen registros relacionados." : error.message
+      details: error.message
     });
   }
 };
