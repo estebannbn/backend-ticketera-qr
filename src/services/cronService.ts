@@ -139,5 +139,32 @@ export const startCronJobs = () => {
     }
   });
 
+
+    // Tarea diaria: Marcar como ELIMINADO los eventos FINALIZADOS hace más de 3 meses
+    cron.schedule("0 0 * * *", async () => {
+      console.log("CronJob: Iniciando limpieza de eventos finalizados hace >3 meses...");
+      try {
+        const tresMesesAtras = dayjs().subtract(3, 'month').toDate();
+
+        const resultado = await prisma.evento.updateMany({
+          where: {
+            estado: { in: [EstadoEvento.FINALIZADO, EstadoEvento.CANCELADO] },
+            fechaHoraEvento: {
+              lt: tresMesesAtras
+            }
+          },
+          data: {
+            estado: EstadoEvento.ELIMINADO
+          }
+        });
+
+        if (resultado.count > 0) {
+          console.log(`CronJob: Se pasaron a ELIMINADO ${resultado.count} eventos antiguos.`);
+        }
+      } catch (error) {
+        console.error("CronJob: Error en limpieza de eventos antiguos:", error);
+      }
+    });
+
   console.log("Servicio de Cron Jobs (Tareas Programadas) iniciado.");
 };
