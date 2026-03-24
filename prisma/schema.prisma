@@ -21,32 +21,30 @@ model Usuario {
 
 model Cliente {
   idCliente       Int      @id @default(autoincrement())
-  idUsuario       Int      @unique
   nombre          String
   apellido        String
   tipoDoc         String
   nroDoc          String   @unique
   fechaNacimiento DateTime
+  idUsuario       Int      @unique
   telefono        String?
+  usuario         Usuario  @relation(fields: [idUsuario], references: [idUsuario], onDelete: Cascade)
   tickets         Ticket[]
-
-  usuario Usuario @relation(fields: [idUsuario], references: [idUsuario], onDelete: Cascade)
 }
 
 model Organizacion {
   idOrganizacion Int      @id @default(autoincrement())
-  idUsuario      Int      @unique
   ubicacion      String
   nombre         String
   cuit           String   @unique
+  idUsuario      Int      @unique
   eventos        Evento[]
-
-  usuario Usuario @relation(fields: [idUsuario], references: [idUsuario], onDelete: Cascade)
+  usuario        Usuario  @relation(fields: [idUsuario], references: [idUsuario], onDelete: Cascade)
 }
 
 model Categoria {
-  idCategoria     Int      @id @default(autoincrement())
   nombreCategoria String   @unique
+  idCategoria     Int      @id @default(autoincrement())
   eventos         Evento[]
 }
 
@@ -55,22 +53,16 @@ model Evento {
   nombre          String
   fechaCreacion   DateTime     @default(now())
   fechaHoraEvento DateTime
-  ubicacion       String
   capacidadMax    Int
   descripcion     String?
   idCategoria     Int
   idOrganizacion  Int
   foto            String
   estado          EstadoEvento @default(ACTIVO)
+  ubicacion       String
   categoria       Categoria    @relation(fields: [idCategoria], references: [idCategoria])
   organizacion    Organizacion @relation(fields: [idOrganizacion], references: [idOrganizacion])
   tipoTickets     TipoTicket[]
-}
-
-enum EstadoEvento {
-  ACTIVO
-  CANCELADO
-  FINALIZADO
 }
 
 model TipoTicket {
@@ -78,27 +70,25 @@ model TipoTicket {
   tipo           String
   precio         Decimal
   acceso         String
-  sector         String?
   cantMaxPorTipo Int
   idEvento       Int
+  sector         String?
   tickets        Ticket[]
-
-  evento Evento @relation(fields: [idEvento], references: [idEvento], onDelete: Cascade)
+  evento         Evento   @relation(fields: [idEvento], references: [idEvento], onDelete: Cascade)
 }
 
 model Ticket {
   nroTicket                    Int          @id @default(autoincrement())
   fechaCreacion                DateTime     @default(now())
-  fechaConsumo                 DateTime?
   tokenQr                      String       @unique
   idTipoTicket                 Int
   idCliente                    Int
-  ofertaTransferenciaIdCliente Int?
   estado                       EstadoTicket @default(pagado)
+  fechaConsumo                 DateTime?
+  ofertaTransferenciaIdCliente Int?
   paymentId                    String?
-
-  cliente    Cliente    @relation(fields: [idCliente], references: [idCliente])
-  tipoTicket TipoTicket @relation(fields: [idTipoTicket], references: [idTipoTicket])
+  cliente                      Cliente      @relation(fields: [idCliente], references: [idCliente])
+  tipoTicket                   TipoTicket   @relation(fields: [idTipoTicket], references: [idTipoTicket])
 }
 
 model Politica {
@@ -106,19 +96,24 @@ model Politica {
   diasReembolso Int      @default(7)
 }
 
-// Enum para definir los roles del usuario
+enum EstadoEvento {
+  ACTIVO
+  CANCELADO
+  FINALIZADO
+  ELIMINADO
+}
+
 enum Rol {
   CLIENTE
   ORGANIZACION
   ADMIN
 }
 
-// Valores posibles de Ticket.estado
 enum EstadoTicket {
-  pendiente
   pagado
   consumido
   expirado
   reembolsado
+  pendiente
   pendiente_transferencia
 }
