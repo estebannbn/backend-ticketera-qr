@@ -190,7 +190,7 @@ const actualizarCliente = async (req: Request, res: Response) => {
       return;
     }
 
-    const updateData: any = {};
+    const updateData: Prisma.ClienteUpdateInput = {};
     if (clienteData.nombre !== undefined) updateData.nombre = clienteData.nombre;
     if (clienteData.apellido !== undefined) updateData.apellido = clienteData.apellido;
     if (clienteData.tipoDoc !== undefined) updateData.tipoDoc = clienteData.tipoDoc;
@@ -200,7 +200,7 @@ const actualizarCliente = async (req: Request, res: Response) => {
     if (clienteData.fechaNacimiento !== undefined) updateData.fechaNacimiento = dayjs.tz(clienteData.fechaNacimiento, TIMEZONE).toDate();
     if (clienteData.telefono !== undefined) updateData.telefono = clienteData.telefono;
 
-    const usuarioUpdateData: any = {};
+    const usuarioUpdateData: Prisma.UsuarioUpdateInput = {};
     if (clienteData.mail !== undefined && clienteData.mail !== clienteExistente.usuario.mail) {
       usuarioUpdateData.mail = clienteData.mail;
     }

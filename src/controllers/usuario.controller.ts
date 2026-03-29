@@ -226,6 +226,14 @@ const resetPassword = async (req: Request, res: Response): Promise<void> => {
 const actualizarUsuario = async (req: Request, res: Response): Promise<void> => {
   try {
     const { idUsuario } = req.params;
+
+    // @ts-ignore
+    const userPayload = req.user;
+    if (!userPayload || (String(userPayload.id) !== String(idUsuario) && userPayload.rol !== Rol.ADMIN)) {
+      res.status(403).json({ message: "No tienes permiso para actualizar este usuario", error: true });
+      return;
+    }
+
     const { mail, contraseña } = req.body;
 
     const data: any = {};
