@@ -353,7 +353,7 @@ const cancelarEvento = async (req: Request, res: Response) => {
     let erroresCount = 0;
 
     for (const ticket of tickets) {
-      if (ticket.estado === "pagado" && ticket.paymentId) {
+      if ((ticket.estado === "pagado" || ticket.estado === "pendiente_transferencia") && ticket.paymentId) {
         try {
           // Reembolso simulado igual al de ticket.controller.ts
           console.log(`Simulando reembolso para Ticket #${ticket.nroTicket} (Payment ID: ${ticket.paymentId}) por cancelación de evento.`);
@@ -381,7 +381,7 @@ const cancelarEvento = async (req: Request, res: Response) => {
           console.error(`Error al procesar simulación de reembolso para ticket ${ticket.nroTicket}:`, err.message || err);
           erroresCount++;
         }
-      } else if (["pendiente", "pendiente_transferencia"].includes(ticket.estado)) {
+      } else if (ticket.estado === "pendiente") {
         await prisma.ticket.update({
           where: { nroTicket: ticket.nroTicket },
           data: { estado: "expirado" }
