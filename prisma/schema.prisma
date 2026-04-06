@@ -46,6 +46,7 @@ model Categoria {
   nombreCategoria String   @unique
   idCategoria     Int      @id @default(autoincrement())
   eventos         Evento[]
+  activo          Boolean  @default(true)
 }
 
 model Evento {

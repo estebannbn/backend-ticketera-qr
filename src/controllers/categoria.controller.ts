@@ -13,13 +13,26 @@ export const crearCategoria = async (req: Request, res: Response): Promise<void>
     });
 
     if (categoriaExistente) {
+      if (!categoriaExistente.activo) {
+        // Reactivar si estaba inactiva
+        const categoriaReactivada = await prisma.categoria.update({
+          where: { idCategoria: categoriaExistente.idCategoria },
+          data: { activo: true }
+        });
+        res.status(200).json({
+          message: "Categoría reactivada con éxito",
+          data: categoriaReactivada,
+          error: false,
+        });
+        return;
+      }
       res.status(400).json({
-        message: "Ya existe una categoría con ese nombre",
+        message: "Ya existe una categoría activa con ese nombre",
         error: true,
         details: [
           {
             path: "body.nombreCategoria",
-            message: "Ya existe una categoría con ese nombre"
+            message: "Ya existe una categoría activa con ese nombre"
           }
         ]
       });
@@ -51,7 +64,7 @@ export const obtenerCategorias = async (req: Request, res: Response): Promise<vo
   try {
     const { nombre } = req.query;
 
-    const whereClause: any = {};
+    const whereClause: any = { activo: true }; // Por defecto solo las activas
     if (nombre) {
       whereClause.nombreCategoria = {
         contains: String(nombre),
@@ -117,24 +130,29 @@ export const eliminarCategoria = async (
   try {
     const { id } = req.params;
 
-    // Verificar si hay eventos asociados a esta categoría
-    const eventosAsociados = await prisma.evento.count({
-      where: { idCategoria: parseInt(id) }
+    // Verificar si hay eventos ACTIVOS asociados a esta categoría
+    const eventosActivos = await prisma.evento.count({
+      where: { 
+        idCategoria: parseInt(id),
+        estado: 'ACTIVO'
+      }
     });
 
-    if (eventosAsociados > 0) {
+    if (eventosActivos > 0) {
       res.status(400).json({
-        message: "No se puede eliminar la categoría porque tiene eventos asociados",
+        message: "No se puede eliminar la categoría porque tiene eventos activos actualmente",
         error: true,
       });
       return;
     }
 
-    const categoriaEliminada = await prisma.categoria.delete({
+    // Baja lógica en lugar de borrado físico para temas estadísticos
+    const categoriaInactivada = await prisma.categoria.update({
       where: { idCategoria: parseInt(id) },
+      data: { activo: false }
     });
 
-    if (!categoriaEliminada) {
+    if (!categoriaInactivada) {
       res.status(404).json({
         message: "La categoría solicitada no existe",
         error: true,
@@ -143,7 +161,7 @@ export const eliminarCategoria = async (
     }
 
     res.status(200).json({
-      message: "Categoria eliminada con éxito",
+      message: "Categoria dada de baja con éxito (Baja lógica aplicada)",
       error: false,
     });
   } catch (error) {
