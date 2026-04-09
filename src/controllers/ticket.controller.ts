@@ -102,7 +102,7 @@ const crearTicket = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // 1.c Validar que el cliente exista y control de DNI (CU01)
+    // 1.c Validar que el cliente exista y control de DNI
     const cliente = await prisma.cliente.findUnique({
       where: { idCliente: Number(idCliente) }
     });

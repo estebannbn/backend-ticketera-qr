@@ -57,7 +57,7 @@ const crearEvento = async (req: Request, res: Response) => {
       return;
     }
 
-    // CU04 Paso 5.b: Validar suma de capacidades de tipos de tickets
+    // Validar suma de capacidades de tipos de tickets
     if (tipoTickets && tipoTickets.length > 0) {
       const sumCapacidades = tipoTickets.reduce((acc: number, tt: any) => acc + Number(tt.cantMaxPorTipo || 0), 0);
       if (sumCapacidades > capacidadMax) {
@@ -482,13 +482,13 @@ const getEstadisticas = async (req: Request, res: Response) => {
       return {
         idCategoria: evento.idCategoria,
         idEvento: evento.idEvento,
-        nombre: evento.nombre, // CU feedback mentions 'titulo' is not in table, we use 'nombre'
+        nombre: evento.nombre,
         foto: evento.foto,
         fecha: evento.fechaHoraEvento,
         vendidos,
         reembolsados,
         porcReembolsados: vendidos > 0 ? (reembolsados / vendidos) * 100 : 0,
-        recaudacion, // Required by CU13
+        recaudacion,
         edadPromedio: clientesContados > 0 ? Math.round(sumaEdades / clientesContados) : 0
       };
     });
