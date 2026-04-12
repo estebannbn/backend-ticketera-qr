@@ -115,7 +115,7 @@ const crearTicket = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    console.log(`Validando DNI del cliente ${cliente.nroDoc} para la compra de ticket.`);
+
 
     const ticketPendienteExistente = await prisma.ticket.findFirst({
       where: {
@@ -136,7 +136,7 @@ const crearTicket = async (req: Request, res: Response): Promise<void> => {
         where: { nroTicket: ticket.nroTicket },
         data: { fechaCreacion: dayjs().toDate() }
       });
-      console.log(`Reutilizando ticket pendiente #${ticket.nroTicket}`);
+
     } else {
       // 2. Crear un nuevo ticket con estado 'pendiente'
       const tokenQr = randomBytes(16).toString("hex");
@@ -148,10 +148,10 @@ const crearTicket = async (req: Request, res: Response): Promise<void> => {
           estado: EstadoTicket.pendiente
         } as any,
       });
-      console.log(`Creando nuevo ticket pendiente #${ticket.nroTicket}`);
+
     }
 
-    console.log("Intentando crear preferencia de MP con access token:", process.env.MP_ACCESS_TOKEN ? "DEFINIDO" : "NO DEFINIDO");
+
 
     const preference = new Preference(client);
 
@@ -177,11 +177,11 @@ const crearTicket = async (req: Request, res: Response): Promise<void> => {
       }
     };
 
-    console.log("Datos de preferencia:", JSON.stringify(preferenceData, null, 2));
+
 
     const result = await preference.create(preferenceData);
 
-    console.log("Resultado creación preferencia:", result.id ? "EXITO" : "FALLO", result.init_point);
+
 
     res.status(200).json({
       message: "Preferencia de Mercado Pago creada",
@@ -393,7 +393,7 @@ const recibirWebhook = async (req: Request, res: Response): Promise<void> => {
               }
             }
           });
-          console.log(`Ticket ${externalReference} actualizado a PAGADO.`);
+
 
           // Enviar correo
           if (ticket.cliente?.usuario?.mail) {
