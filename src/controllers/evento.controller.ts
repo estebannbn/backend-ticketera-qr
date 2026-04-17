@@ -109,21 +109,30 @@ const obtenerEventos = async (req: Request, res: Response) => {
     const idOrganizacion = req.query.idOrganizacion
       ? Number(req.query.idOrganizacion)
       : undefined;
+    const todo = req.query.todo === "true";
 
     const now = dayjs().tz(TIMEZONE);
     const threeMonthsAgo = now.subtract(3, 'month').toDate();
     const threeMonthsFromNow = now.add(3, 'month').toDate();
 
-    const whereClause: any = idOrganizacion 
-      ? { 
-          idOrganizacion,
-          estado: { not: "ELIMINADO" }, // Excluir eliminados
-          fechaHoraEvento: {
-            gte: threeMonthsAgo,
-            lte: threeMonthsFromNow
-          }
-        } 
-      : { estado: "ACTIVO" }; // Los activos por definición no son ELIMINADOS
+    let whereClause: any;
+
+    if (todo) {
+      whereClause = idOrganizacion 
+        ? { idOrganizacion, estado: { not: "ELIMINADO" } }
+        : { estado: { not: "ELIMINADO" } };
+    } else {
+      whereClause = idOrganizacion 
+        ? { 
+            idOrganizacion,
+            estado: { not: "ELIMINADO" }, 
+            fechaHoraEvento: {
+              gte: threeMonthsAgo,
+              lte: threeMonthsFromNow
+            }
+          } 
+        : { estado: "ACTIVO" };
+    }
 
     const eventos = await prisma.evento.findMany({
       where: whereClause,
